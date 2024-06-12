@@ -5,6 +5,7 @@ import java.util.List;
 public abstract class Expr {
     interface Visitor<T> {
         T visitBinary(Binary expr);
+        T visitTernary(Ternary expr);
         T visitGrouping(Grouping expr);
         T visitLiteral(Literal expr);
         T visitUnary(Unary expr);
@@ -26,6 +27,23 @@ public abstract class Expr {
             this.left = left;
             this.operator = operator;
             this.right = right;
+        }
+    }
+
+    public static class Ternary extends Expr {
+        final Expr condition;
+        final Expr trueExpr;
+        final Expr falseExpr;
+
+        @Override
+        <T> T accept(Visitor<T> visitor) {
+            return visitor.visitTernary(this);
+        }
+
+        public Ternary(Expr condition, Expr trueExpr, Expr falseExpr) {
+            this.condition = condition;
+            this.trueExpr = trueExpr;
+            this.falseExpr = falseExpr;
         }
     }
 

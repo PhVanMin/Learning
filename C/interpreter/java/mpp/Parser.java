@@ -4,7 +4,9 @@ import static mpp.TokenType.*;
 import java.util.List;
 
 public class Parser {
-    private static class ParseError extends RuntimeException {}
+    private static class ParseError extends RuntimeException {
+    }
+
     private final List<Token> tokens;
     private int current = 0;
 
@@ -21,7 +23,38 @@ public class Parser {
     }
 
     private Expr expression() {
-        return equality();
+        if (match(EQUAL_EQUAL)) {
+            System.out.println("No left-hand operand.");
+            synchronizeError();
+        }
+
+        return ternary();
+    }
+
+    private Expr ternary() {
+        Expr expr = comma();
+
+        if (match(QUESTION)) {
+            Expr trueExpr = ternary();
+            consume(COLON, "Expect false expression.");
+            Expr falseExpr = comma();
+
+            return new Expr.Ternary(expr, trueExpr, falseExpr);
+        }
+
+        return expr;
+    }
+
+    private Expr comma() {
+        Expr expr = equality();
+
+        while (match(COMMA)) {
+            Token operator = peek(-1);
+            Expr right = comma();
+            expr = new Expr.Binary(expr, operator, right);
+        }
+
+        return expr;
     }
 
     private Expr equality() {
@@ -50,7 +83,6 @@ public class Parser {
 
     private Expr term() {
         Expr expr = factor();
-
         while (match(MINUS, PLUS)) {
             Token operator = peek(-1);
             Expr right = factor();
@@ -62,7 +94,6 @@ public class Parser {
 
     private Expr factor() {
         Expr expr = unary();
-
         while (match(SLASH, STAR)) {
             Token operator = peek(-1);
             Expr right = unary();
@@ -104,8 +135,9 @@ public class Parser {
     }
 
     private Token consume(TokenType type, String errMsg) {
-        if (match(type))
+        if (check(type)) {
             return advance();
+        }
 
         throw error(peek(0), errMsg);
     }
@@ -115,28 +147,28 @@ public class Parser {
         return new ParseError();
     }
 
-private void synchronizeError() {
-    advance();
+    private void synchronizeError() {
+        advance();
 
-    while (!isAtEnd()) {
-        if (peek(-1).type == SEMICOLON) return;
-
-        switch(peek(0).type) {
-            case CLASS:
-            case FUN:
-            case VAR:
-            case FOR:
-            case IF:
-            case WHILE:
-            case PRINT:
-            case RETURN:
+        while (!isAtEnd()) {
+            if (peek(-1).type == SEMICOLON)
                 return;
-            default:
-                advance();
-        }
 
+            switch (peek(0).type) {
+                case CLASS:
+                case FUN:
+                case VAR:
+                case FOR:
+                case IF:
+                case WHILE:
+                case PRINT:
+                case RETURN:
+                    return;
+                default:
+                    advance();
+            }
+        }
     }
-}
 
     private boolean match(TokenType... types) {
         for (TokenType type : types) {
