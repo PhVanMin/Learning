@@ -42,7 +42,7 @@ private String stringify(Object obj) {
         switch (expr.operator.type) {
             case PLUS:
                 if (left instanceof Double && right instanceof Double)
-                    return (double) left - (double) right;
+                    return (double) left + (double) right;
 
                 if (left instanceof String && right instanceof String)
                     return (String) left + (String) right;
@@ -57,7 +57,7 @@ private String stringify(Object obj) {
             case SLASH:
                 checkNumberOperands(expr.operator, left, right);
                 return (double) left / (double) right;
-            case COLON:
+            case COMMA:
                 return right;
             case EQUAL_EQUAL:
                 return isEqual(left, right);
