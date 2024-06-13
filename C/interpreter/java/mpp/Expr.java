@@ -5,9 +5,11 @@ import java.util.List;
 public abstract class Expr {
     interface Visitor<T> {
         T visitBinary(Binary expr);
+        T visitAssign(Assign expr);
         T visitTernary(Ternary expr);
         T visitGrouping(Grouping expr);
         T visitLiteral(Literal expr);
+        T visitVariable(Variable expr);
         T visitUnary(Unary expr);
     }
 
@@ -27,6 +29,21 @@ public abstract class Expr {
             this.left = left;
             this.operator = operator;
             this.right = right;
+        }
+    }
+
+    public static class Assign extends Expr {
+        final Token name;
+        final Expr value;
+
+        @Override
+        <T> T accept(Visitor<T> visitor) {
+            return visitor.visitAssign(this);
+        }
+
+        public Assign(Token name, Expr value) {
+            this.name = name;
+            this.value = value;
         }
     }
 
@@ -70,6 +87,19 @@ public abstract class Expr {
 
         public Literal(Object value) {
             this.value = value;
+        }
+    }
+
+    public static class Variable extends Expr {
+        final Token name;
+
+        @Override
+        <T> T accept(Visitor<T> visitor) {
+            return visitor.visitVariable(this);
+        }
+
+        public Variable(Token name) {
+            this.name = name;
         }
     }
 

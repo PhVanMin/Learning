@@ -1,6 +1,6 @@
 package mpp;
 
-class RuntimeError extends RuntimeException {
+public class RuntimeError extends RuntimeException {
     final Token token;
 
     public RuntimeError(Token token, String message) {

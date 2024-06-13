@@ -1,6 +1,8 @@
 package mpp;
 
 import static mpp.TokenType.*;
+
+import java.util.ArrayList;
 import java.util.List;
 
 public class Parser {
@@ -14,12 +16,73 @@ public class Parser {
         this.tokens = tokens;
     }
 
-    public Expr parse() {
+    public List<Stmt> parse() {
+        List<Stmt> statements = new ArrayList<>();
+
+        while (!isAtEnd()) {
+            statements.add(declaration());
+        }
+
+        return statements;
+    }
+
+    private Stmt declaration() {
         try {
-            return expression();
+            if (match(VAR))
+                return varDeclaration();
+
+            return statement();
         } catch (ParseError error) {
+            synchronizeError();
             return null;
         }
+    }
+
+    private Stmt varDeclaration() {
+        Token name = consume(IDENTIFIER, "Expect variable name.");
+
+        Expr initializer = null;
+        if (match(EQUAL)) {
+            initializer = expression();
+        }
+
+        consume(SEMICOLON, "Expect ';' after variable declaration");
+        return new Stmt.Var(name, initializer);
+    }
+
+    private Stmt statement() {
+        if (match(PRINT))
+            return printStatement();
+
+        if (match(LEFT_BRACE)) {
+            return new Stmt.Block(block());            
+        }
+
+        return expressionStatement();
+    }
+
+    private List<Stmt> block() {
+        List<Stmt> statements = new ArrayList<>();
+
+        while (!check(RIGHT_BRACE) && !isAtEnd()) {
+            statements.add(declaration());
+        }
+
+        consume(RIGHT_BRACE, "Expected '}' after block.");
+
+        return statements;
+    }
+
+    private Stmt printStatement() {
+        Expr value = expression();
+        consume(SEMICOLON, "Expect ';' after value.");
+        return new Stmt.Print(value);
+    }
+
+    private Stmt expressionStatement() {
+        Expr expression = expression();
+        consume(SEMICOLON, "Expect ';' after expression.");
+        return new Stmt.Expression(expression);
     }
 
     private Expr expression() {
@@ -28,30 +91,48 @@ public class Parser {
             synchronizeError();
         }
 
-        return ternary();
-    }
-
-    private Expr ternary() {
-        Expr expr = comma();
-
-        if (match(QUESTION)) {
-            Expr trueExpr = ternary();
-            consume(COLON, "Expect false expression.");
-            Expr falseExpr = comma();
-
-            return new Expr.Ternary(expr, trueExpr, falseExpr);
-        }
-
-        return expr;
+        return comma();
     }
 
     private Expr comma() {
-        Expr expr = equality();
+        Expr expr = assignment();
 
         while (match(COMMA)) {
             Token operator = peek(-1);
             Expr right = comma();
             expr = new Expr.Binary(expr, operator, right);
+        }
+
+        return expr;
+    }
+
+    private Expr assignment() {
+        Expr expr = ternary();
+
+        if (match(EQUAL)) {
+            Token equals = peek(-1);
+            Expr value = assignment();
+            
+            if (expr instanceof Expr.Variable) {
+                Token name = ((Expr.Variable) expr).name;
+                return new Expr.Assign(name, value);
+            }
+
+            error(equals, "Invalid assignment value.");
+        }
+
+        return expr;
+    }
+
+    private Expr ternary() {
+        Expr expr = equality();
+
+        if (match(QUESTION)) {
+            Expr trueExpr = expression();
+            consume(COLON, "Expect false expression.");
+            Expr falseExpr = equality();
+
+            return new Expr.Ternary(expr, trueExpr, falseExpr);
         }
 
         return expr;
@@ -116,14 +197,18 @@ public class Parser {
     private Expr primary() {
         if (match(TRUE))
             return new Expr.Literal(true);
+
         if (match(FALSE))
             return new Expr.Literal(false);
+
         if (match(NIL))
             return new Expr.Literal(null);
 
-        if (match(NUMBER, TokenType.STRING)) {
+        if (match(NUMBER, TokenType.STRING))
             return new Expr.Literal(peek(-1).literal);
-        }
+
+        if (match(IDENTIFIER))
+            return new Expr.Variable(peek(-1));
 
         if (match(LEFT_PAREN)) {
             Expr expr = expression();

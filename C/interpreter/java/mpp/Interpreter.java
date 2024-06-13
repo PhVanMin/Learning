@@ -1,37 +1,29 @@
 package mpp;
 
+import java.util.List;
+
+import mpp.Expr.Assign;
 import mpp.Expr.Binary;
 import mpp.Expr.Grouping;
 import mpp.Expr.Literal;
 import mpp.Expr.Ternary;
 import mpp.Expr.Unary;
+import mpp.Expr.Variable;
 
-public class Interpreter implements Expr.Visitor<Object> {
-    public void interpret(Expr expr) {
+public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
+    private Environment environment = new Environment();
+    private boolean cmd;
+
+    public void interpret(List<Stmt> stmts, boolean cmd) {
+        this.cmd = cmd;
+
         try {
-            Object value = evaluate(expr);
-            System.out.println(stringify(value));
+            for (Stmt stmt : stmts) {
+                execute(stmt);
+            }
         } catch (RuntimeError error) {
             Minhpp.runtimeError(error);
         }
-    }
-
-private String stringify(Object obj) {
-    if (obj == null) return "nil";
-
-    if (obj instanceof Double) {
-        String text = obj.toString();
-
-        if (text.endsWith(".0")) {
-            return text.substring(0, text.length() - 2);
-        }
-    }
-
-    return obj.toString();
-}
-
-    private Object evaluate(Expr expression) {
-        return expression.accept(this);
     }
 
     @Override
@@ -44,8 +36,9 @@ private String stringify(Object obj) {
                 if (left instanceof Double && right instanceof Double)
                     return (double) left + (double) right;
 
-                if (left instanceof String && right instanceof String)
-                    return (String) left + (String) right;
+                if ((left instanceof Double || left instanceof String)
+                        && (right instanceof Double || right instanceof String))
+                    return stringify(left) + stringify(right);
 
                 throw new RuntimeError(expr.operator, "Operands must be two numbers or two strings.");
             case MINUS:
@@ -56,6 +49,10 @@ private String stringify(Object obj) {
                 return (double) left * (double) right;
             case SLASH:
                 checkNumberOperands(expr.operator, left, right);
+
+                if ((double) right == 0)
+                    throw new RuntimeError(expr.operator, "Division by 0.");
+
                 return (double) left / (double) right;
             case COMMA:
                 return right;
@@ -120,17 +117,90 @@ private String stringify(Object obj) {
         return null;
     }
 
+    @Override
+    public Void visitExpression(Stmt.Expression stmt) {
+        Object value = evaluate(stmt.expression);
+        if (cmd)
+            System.out.println(stringify(value));
+        return null;
+    }
+
+    @Override
+    public Void visitPrint(Stmt.Print stmt) {
+        Object value = evaluate(stmt.expression);
+        System.out.println(stringify(value));
+        return null;
+    }
+
+    @Override
+    public Void visitVar(Stmt.Var stmt) {
+        Object value = null;
+
+        if (stmt.initializer != null) {
+            value = evaluate(stmt.initializer);
+        }
+
+        environment.define(stmt.name.lexeme, value);
+        return null;
+    }
+
+    @Override
+    public Object visitVariable(Variable expr) {
+        Object value = environment.get(expr.name);
+        if (value != null)
+            return value;
+
+        throw new RuntimeError(expr.name, "Expected non-null value of variable.");
+    }
+
+    @Override
+    public Object visitAssign(Assign expr) {
+        Object value = evaluate(expr.value);
+        environment.assign(expr.name, value);
+        return value;
+    }
+
+    @Override
+    public Void visitBlock(Stmt.Block stmt) {
+        executeBlock(stmt.statements, new Environment(environment));
+        return null;
+    }
+
+    private void execute(Stmt statement) {
+        statement.accept(this);
+    }
+
+    private String stringify(Object obj) {
+        if (obj == null)
+            return "nil";
+
+        if (obj instanceof Double) {
+            String text = obj.toString();
+
+            if (text.endsWith(".0")) {
+                return text.substring(0, text.length() - 2);
+            }
+        }
+
+        return obj.toString();
+    }
+
+    private Object evaluate(Expr expression) {
+        return expression.accept(this);
+    }
+
     private void checkNumberOperands(Token operator, Object... operands) {
         for (Object operand : operands) {
             if (!(operand instanceof Double))
                 throw new RuntimeError(operator, "Operand must be a number.");
         }
-
     }
 
     private boolean isEqual(Object a, Object b) {
-        if (a == null && b ==  null) return true;
-        if (a == null) return false;
+        if (a == null && b == null)
+            return true;
+        if (a == null)
+            return false;
 
         return a.equals(b);
     }
@@ -138,8 +208,24 @@ private String stringify(Object obj) {
     private boolean isTruthy(Object obj) {
         if (obj instanceof Boolean)
             return (boolean) obj;
+
         if (obj != null)
             return true;
+
         return false;
+    }
+
+    private void executeBlock(List<Stmt> stmts, Environment env) {
+        Environment prevEnv = environment;
+
+        try {
+            environment = env;
+
+            for (Stmt stmt : stmts) {
+                execute(stmt);
+            }
+        } finally {
+            environment = prevEnv;
+        }
     }
 }
