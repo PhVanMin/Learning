@@ -1,14 +1,19 @@
 package mpp;
 
+import static mpp.TokenType.OR;
+
 import java.util.List;
 
 import mpp.Expr.Assign;
 import mpp.Expr.Binary;
 import mpp.Expr.Grouping;
 import mpp.Expr.Literal;
+import mpp.Expr.Logical;
 import mpp.Expr.Ternary;
 import mpp.Expr.Unary;
 import mpp.Expr.Variable;
+import mpp.Stmt.If;
+import mpp.Stmt.While;
 
 public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
     private Environment environment = new Environment();
@@ -54,6 +59,13 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
                     throw new RuntimeError(expr.operator, "Division by 0.");
 
                 return (double) left / (double) right;
+            case PERCEN:
+                checkNumberOperands(expr.operator, left, right);
+
+                if ((double) right == 0)
+                    throw new RuntimeError(expr.operator, "Division by 0.");
+
+                return (double) left % (double) right;
             case COMMA:
                 return right;
             case EQUAL_EQUAL:
@@ -227,5 +239,39 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
         } finally {
             environment = prevEnv;
         }
+    }
+
+    @Override
+    public Void visitIf(If stmt) {
+        if (isTruthy(evaluate(stmt.condition))) {
+            execute(stmt.trueStmt);
+        } else if (stmt.falseStmt != null) {
+            execute(stmt.falseStmt);
+        }
+        return null;
+    }
+
+    @Override
+    public Object visitLogical(Logical expr) {
+        Object left = evaluate(expr.left);
+
+        if (expr.operator.type == OR) {
+            if (isTruthy(left))
+                return left;
+        } else {
+            if (!isTruthy(left))
+                return left;
+        }
+
+        return evaluate(expr.right);
+    }
+
+    @Override
+    public Void visitWhile(While stmt) {
+        while (isTruthy(evaluate(stmt.condition))) {
+            execute(stmt.whileStmt);
+        }
+
+        return null;
     }
 }

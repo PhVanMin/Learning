@@ -91,6 +91,9 @@ class Scanner {
             case '?':
                 addToken(QUESTION);
                 break;
+            case '%':
+                addToken(PERCEN);
+                break;
             case '!':
                 addToken(match('=') ? BANG_EQUAL : BANG);
                 break;

@@ -1,8 +1,43 @@
 package mpp;
 
-import static mpp.TokenType.*;
+import static mpp.TokenType.AND;
+import static mpp.TokenType.BANG;
+import static mpp.TokenType.BANG_EQUAL;
+import static mpp.TokenType.COLON;
+import static mpp.TokenType.COMMA;
+import static mpp.TokenType.ELSE;
+import static mpp.TokenType.EOF;
+import static mpp.TokenType.EQUAL;
+import static mpp.TokenType.EQUAL_EQUAL;
+import static mpp.TokenType.FALSE;
+import static mpp.TokenType.FOR;
+import static mpp.TokenType.GREATER;
+import static mpp.TokenType.GREATER_EQUAL;
+import static mpp.TokenType.IDENTIFIER;
+import static mpp.TokenType.IF;
+import static mpp.TokenType.LEFT_BRACE;
+import static mpp.TokenType.LEFT_PAREN;
+import static mpp.TokenType.LESS;
+import static mpp.TokenType.LESS_EQUAL;
+import static mpp.TokenType.MINUS;
+import static mpp.TokenType.NIL;
+import static mpp.TokenType.NUMBER;
+import static mpp.TokenType.OR;
+import static mpp.TokenType.PERCEN;
+import static mpp.TokenType.PLUS;
+import static mpp.TokenType.PRINT;
+import static mpp.TokenType.QUESTION;
+import static mpp.TokenType.RIGHT_BRACE;
+import static mpp.TokenType.RIGHT_PAREN;
+import static mpp.TokenType.SEMICOLON;
+import static mpp.TokenType.SLASH;
+import static mpp.TokenType.STAR;
+import static mpp.TokenType.TRUE;
+import static mpp.TokenType.VAR;
+import static mpp.TokenType.WHILE;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 public class Parser {
@@ -51,14 +86,80 @@ public class Parser {
     }
 
     private Stmt statement() {
+        if (match(IF))
+            return ifStatement();
+
+        if (match(WHILE))
+            return whileStatement();
+
         if (match(PRINT))
             return printStatement();
 
-        if (match(LEFT_BRACE)) {
-            return new Stmt.Block(block());            
-        }
+        if (match(FOR))
+            return forStatement();
+
+        if (match(LEFT_BRACE))
+            return new Stmt.Block(block());
 
         return expressionStatement();
+    }
+
+    private Stmt forStatement() {
+        consume(LEFT_PAREN, "Expected '(' after for.");
+        Stmt ini = null;
+        if (match(SEMICOLON)) {
+            ini = null;
+        } else if (match(VAR)) {
+            ini = varDeclaration();
+        } else {
+            ini = expressionStatement();
+        }
+
+        Expr condition = null;
+        if (!check(SEMICOLON)) {
+            condition = expression();
+        }
+        consume(SEMICOLON, "Expected ';' after loop condition.");
+
+        Expr increment = null;
+        if (!check(RIGHT_PAREN)) {
+            increment = expression();
+        }
+        consume(RIGHT_PAREN, "Expected ')' after for statement.");
+
+        Stmt body = statement();
+        if (increment != null)
+            body = new Stmt.Block(Arrays.asList(body, new Stmt.Expression(increment)));
+
+        if (condition == null)
+            condition = new Expr.Literal(true);
+        body = new Stmt.While(condition, body);
+
+        if (ini != null)
+            body = new Stmt.Block(Arrays.asList(ini, body));
+        return body;
+    }
+
+    private Stmt whileStatement() {
+        consume(LEFT_PAREN, "Expected '(' after while.");
+        Expr condition = expression();
+        consume(LEFT_PAREN, "Expected ')' after while condition.");
+
+        Stmt whileStmt = statement();
+        return new Stmt.While(condition, whileStmt);
+    }
+
+    private Stmt ifStatement() {
+        consume(LEFT_PAREN, "Expected '(' after if condition.");
+        Expr expr = expression();
+        consume(RIGHT_PAREN, "Expected ')' after if condition.");
+
+        Stmt trueStmt = statement();
+        Stmt falseStmt = null;
+        if (match(ELSE))
+            falseStmt = statement();
+
+        return new Stmt.If(expr, trueStmt, falseStmt);
     }
 
     private List<Stmt> block() {
@@ -112,7 +213,7 @@ public class Parser {
         if (match(EQUAL)) {
             Token equals = peek(-1);
             Expr value = assignment();
-            
+
             if (expr instanceof Expr.Variable) {
                 Token name = ((Expr.Variable) expr).name;
                 return new Expr.Assign(name, value);
@@ -125,17 +226,41 @@ public class Parser {
     }
 
     private Expr ternary() {
-        Expr expr = equality();
+        Expr expr = or();
 
         if (match(QUESTION)) {
             Expr trueExpr = expression();
             consume(COLON, "Expect false expression.");
-            Expr falseExpr = equality();
+            Expr falseExpr = or();
 
             return new Expr.Ternary(expr, trueExpr, falseExpr);
         }
 
         return expr;
+    }
+
+    private Expr or() {
+        Expr left = and();
+
+        while (match(OR)) {
+            Token logicalToken = peek(-1);
+            Expr right = and();
+            left = new Expr.Logical(left, logicalToken, right);
+        }
+
+        return left;
+    }
+
+    private Expr and() {
+        Expr left = equality();
+
+        while (match(AND)) {
+            Token logicToken = peek(-1);
+            Expr right = equality();
+            left = new Expr.Logical(left, logicToken, right);
+        }
+
+        return left;
     }
 
     private Expr equality() {
@@ -175,7 +300,7 @@ public class Parser {
 
     private Expr factor() {
         Expr expr = unary();
-        while (match(SLASH, STAR)) {
+        while (match(SLASH, STAR, PERCEN)) {
             Token operator = peek(-1);
             Expr right = unary();
             expr = new Expr.Binary(expr, operator, right);

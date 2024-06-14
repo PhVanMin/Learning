@@ -7,6 +7,7 @@ public abstract class Expr {
         T visitBinary(Binary expr);
         T visitAssign(Assign expr);
         T visitTernary(Ternary expr);
+        T visitLogical(Logical expr);
         T visitGrouping(Grouping expr);
         T visitLiteral(Literal expr);
         T visitVariable(Variable expr);
@@ -61,6 +62,23 @@ public abstract class Expr {
             this.condition = condition;
             this.trueExpr = trueExpr;
             this.falseExpr = falseExpr;
+        }
+    }
+
+    public static class Logical extends Expr {
+        final Expr left;
+        final Token operator;
+        final Expr right;
+
+        @Override
+        <T> T accept(Visitor<T> visitor) {
+            return visitor.visitLogical(this);
+        }
+
+        public Logical(Expr left, Token operator, Expr right) {
+            this.left = left;
+            this.operator = operator;
+            this.right = right;
         }
     }
 

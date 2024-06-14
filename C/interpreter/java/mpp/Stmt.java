@@ -5,6 +5,8 @@ import java.util.List;
 public abstract class Stmt {
     interface Visitor<T> {
         T visitBlock(Block stmt);
+        T visitWhile(While stmt);
+        T visitIf(If stmt);
         T visitVar(Var stmt);
         T visitExpression(Expression stmt);
         T visitPrint(Print stmt);
@@ -22,6 +24,38 @@ public abstract class Stmt {
 
         public Block(List<Stmt> statements) {
             this.statements = statements;
+        }
+    }
+
+    public static class While extends Stmt {
+        final Expr condition;
+        final Stmt whileStmt;
+
+        @Override
+        <T> T accept(Visitor<T> visitor) {
+            return visitor.visitWhile(this);
+        }
+
+        public While(Expr condition, Stmt whileStmt) {
+            this.condition = condition;
+            this.whileStmt = whileStmt;
+        }
+    }
+
+    public static class If extends Stmt {
+        final Expr condition;
+        final Stmt trueStmt;
+        final Stmt falseStmt;
+
+        @Override
+        <T> T accept(Visitor<T> visitor) {
+            return visitor.visitIf(this);
+        }
+
+        public If(Expr condition, Stmt trueStmt, Stmt falseStmt) {
+            this.condition = condition;
+            this.trueStmt = trueStmt;
+            this.falseStmt = falseStmt;
         }
     }
 
