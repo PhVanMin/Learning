@@ -12,12 +12,14 @@ import mpp.Expr.Logical;
 import mpp.Expr.Ternary;
 import mpp.Expr.Unary;
 import mpp.Expr.Variable;
+import mpp.Stmt.Break;
 import mpp.Stmt.If;
 import mpp.Stmt.While;
 
 public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
     private Environment environment = new Environment();
     private boolean cmd;
+    private boolean inLoop = true;
 
     public void interpret(List<Stmt> stmts, boolean cmd) {
         this.cmd = cmd;
@@ -235,6 +237,7 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
 
             for (Stmt stmt : stmts) {
                 execute(stmt);
+                if (!inLoop) break;
             }
         } finally {
             environment = prevEnv;
@@ -268,10 +271,17 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
 
     @Override
     public Void visitWhile(While stmt) {
-        while (isTruthy(evaluate(stmt.condition))) {
+        while (inLoop && isTruthy(evaluate(stmt.condition))) {
             execute(stmt.whileStmt);
         }
 
+        inLoop = true;
         return null;
     }
+
+	@Override
+	public Void visitBreak(Break stmt) {
+        inLoop = false;    
+        return null;
+	}
 }

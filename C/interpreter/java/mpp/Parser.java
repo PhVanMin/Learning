@@ -1,41 +1,6 @@
 package mpp;
 
-import static mpp.TokenType.AND;
-import static mpp.TokenType.BANG;
-import static mpp.TokenType.BANG_EQUAL;
-import static mpp.TokenType.COLON;
-import static mpp.TokenType.COMMA;
-import static mpp.TokenType.ELSE;
-import static mpp.TokenType.EOF;
-import static mpp.TokenType.EQUAL;
-import static mpp.TokenType.EQUAL_EQUAL;
-import static mpp.TokenType.FALSE;
-import static mpp.TokenType.FOR;
-import static mpp.TokenType.GREATER;
-import static mpp.TokenType.GREATER_EQUAL;
-import static mpp.TokenType.IDENTIFIER;
-import static mpp.TokenType.IF;
-import static mpp.TokenType.LEFT_BRACE;
-import static mpp.TokenType.LEFT_PAREN;
-import static mpp.TokenType.LESS;
-import static mpp.TokenType.LESS_EQUAL;
-import static mpp.TokenType.MINUS;
-import static mpp.TokenType.NIL;
-import static mpp.TokenType.NUMBER;
-import static mpp.TokenType.OR;
-import static mpp.TokenType.PERCEN;
-import static mpp.TokenType.PLUS;
-import static mpp.TokenType.PRINT;
-import static mpp.TokenType.QUESTION;
-import static mpp.TokenType.RIGHT_BRACE;
-import static mpp.TokenType.RIGHT_PAREN;
-import static mpp.TokenType.SEMICOLON;
-import static mpp.TokenType.SLASH;
-import static mpp.TokenType.STAR;
-import static mpp.TokenType.TRUE;
-import static mpp.TokenType.VAR;
-import static mpp.TokenType.WHILE;
-
+import static mpp.TokenType.*;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -46,6 +11,7 @@ public class Parser {
 
     private final List<Token> tokens;
     private int current = 0;
+    private int inLoop = 0;
 
     public Parser(List<Token> tokens) {
         this.tokens = tokens;
@@ -89,6 +55,9 @@ public class Parser {
         if (match(IF))
             return ifStatement();
 
+        if (match(BREAK))
+            return breakStatement();
+
         if (match(WHILE))
             return whileStatement();
 
@@ -102,6 +71,12 @@ public class Parser {
             return new Stmt.Block(block());
 
         return expressionStatement();
+    }
+
+    private Stmt breakStatement() {
+        if (inLoop == 0) throw error(peek(-1), "Break outside of loop.");
+        consume(SEMICOLON, "Expect ';' after break.");
+        return new Stmt.Break();
     }
 
     private Stmt forStatement() {
@@ -127,12 +102,16 @@ public class Parser {
         }
         consume(RIGHT_PAREN, "Expected ')' after for statement.");
 
+        inLoop++;
         Stmt body = statement();
+        inLoop--;
+
         if (increment != null)
             body = new Stmt.Block(Arrays.asList(body, new Stmt.Expression(increment)));
 
         if (condition == null)
             condition = new Expr.Literal(true);
+
         body = new Stmt.While(condition, body);
 
         if (ini != null)
@@ -143,9 +122,12 @@ public class Parser {
     private Stmt whileStatement() {
         consume(LEFT_PAREN, "Expected '(' after while.");
         Expr condition = expression();
-        consume(LEFT_PAREN, "Expected ')' after while condition.");
-
+        consume(RIGHT_PAREN, "Expected ')' after while condition.");
+        
+        inLoop++;
         Stmt whileStmt = statement();
+        inLoop--;
+
         return new Stmt.While(condition, whileStmt);
     }
 
@@ -219,7 +201,7 @@ public class Parser {
                 return new Expr.Assign(name, value);
             }
 
-            error(equals, "Invalid assignment value.");
+            throw error(equals, "Invalid assignment value.");
         }
 
         return expr;

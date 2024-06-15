@@ -1,5 +1,16 @@
-var a = 1;
+var c1 = true;
+var c2 = true;
 
-for (var b = 1; b < 10; b = b + 1)
-  if (b % 2 == 0) print "Even";
-  else print "Odd";
+while (c1) {
+    print "1st while";
+    var i = 0;
+    while (c2) {
+        print i;
+        i = i + 1;
+        if (i == 5) break;
+    }
+    print "Exit 2nd while";
+    if (i != 0) break;
+}
+
+print "Exit 1st while";

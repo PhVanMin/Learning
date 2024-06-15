@@ -29,6 +29,7 @@ public class GenerateAst {
                 "If : Expr condition, Stmt trueStmt, Stmt falseStmt",
                 "Var : Token name, Expr initializer",
                 "Expression : Expr expression",
+                "Break",
                 "Print : Expr expression"));
     }
 
@@ -47,7 +48,9 @@ public class GenerateAst {
         for (String type : types) {
             String[] split = type.split(":");
             String className = split[0].trim();
-            String fields = split[1].trim();
+            String fields = null;
+            if (split.length == 2)
+                fields = split[1].trim();
             defineType(writer, name, className, fields);
         }
 
@@ -72,23 +75,24 @@ public class GenerateAst {
     private static void defineType(PrintWriter writer, String name, String className, String fields) {
         writer.println("    public static class " + className + " extends " + name + " {");
 
-        String[] fieldsSplit = fields.split(", ");
-        for (String field : fieldsSplit) {
-            writer.println("        final " + field + ";");
+        if (fields != null) {
+            String[] fieldsSplit = fields.split(", ");
+            for (String field : fieldsSplit) {
+                writer.println("        final " + field + ";");
+            }
+
+            writer.println("        public " + className + "(" + fields + ") {");
+            for (String field : fieldsSplit) {
+                String fieldName = field.split(" ")[1];
+                writer.println("            this." + fieldName + " = " + fieldName + ";");
+            }
+            writer.println("        }");
         }
 
         writer.println();
         writer.println("        @Override");
         writer.println("        <T> T accept(Visitor<T> visitor) {");
         writer.println("            return visitor.visit" + className + "(this);");
-        writer.println("        }");
-
-        writer.println();
-        writer.println("        public " + className + "(" + fields + ") {");
-        for (String field : fieldsSplit) {
-            String fieldName = field.split(" ")[1];
-            writer.println("            this." + fieldName + " = " + fieldName + ";");
-        }
         writer.println("        }");
 
         writer.println("    }");
