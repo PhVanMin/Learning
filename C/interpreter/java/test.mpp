@@ -1,9 +1,7 @@
 fun f() {
-    fun f() {
-        print "F";
-    }
-
-    return f; 
+    return fun () {
+        print 1;
+    };
 }
 
 var a = f();

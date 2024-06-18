@@ -1,7 +1,6 @@
 package mpp;
 
 import static mpp.TokenType.OR;
-
 import java.util.ArrayList;
 import java.util.List;
 
@@ -9,6 +8,7 @@ import mpp.Expr.Assign;
 import mpp.Expr.Binary;
 import mpp.Expr.Call;
 import mpp.Expr.Grouping;
+import mpp.Expr.Lambda;
 import mpp.Expr.Literal;
 import mpp.Expr.Logical;
 import mpp.Expr.Ternary;
@@ -340,19 +340,25 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
         return function.call(this, arguments);
     }
 
-	@Override
-	public Void visitFunction(Function stmt) {
+    @Override
+    public Void visitFunction(Function stmt) {
         MinhppFunction function = new MinhppFunction(stmt, environment);
         environment.define(stmt.name.lexeme, function);
         return null;
-	}
+    }
 
-	@Override
-	public Void visitReturn(Stmt.Return stmt) {
+    @Override
+    public Void visitReturn(Stmt.Return stmt) {
         Object value = null;
 
-        if (stmt.value != null) value = evaluate(stmt.value);
+        if (stmt.value != null)
+            value = evaluate(stmt.value);
 
-        throw new Return(value);
-	}
+        throw new mpp.Return(value);
+    }
+
+    @Override
+    public Object visitLambda(Lambda expr) {
+        return new MinhppFunction(expr.function, environment);
+    }
 }

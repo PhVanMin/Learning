@@ -8,6 +8,7 @@ public abstract class Expr {
         T visitAssign(Assign expr);
         T visitTernary(Ternary expr);
         T visitLogical(Logical expr);
+        T visitLambda(Lambda expr);
         T visitGrouping(Grouping expr);
         T visitLiteral(Literal expr);
         T visitCall(Call expr);
@@ -76,6 +77,18 @@ public abstract class Expr {
         @Override
         <T> T accept(Visitor<T> visitor) {
             return visitor.visitLogical(this);
+        }
+    }
+
+    public static class Lambda extends Expr {
+        final Stmt.Function function;
+        public Lambda(Stmt.Function function) {
+            this.function = function;
+        }
+
+        @Override
+        <T> T accept(Visitor<T> visitor) {
+            return visitor.visitLambda(this);
         }
     }
 

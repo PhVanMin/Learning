@@ -18,6 +18,7 @@ public class GenerateAst {
                 "Assign : Token name, Expr value",
                 "Ternary : Expr condition, Expr trueExpr, Expr falseExpr",
                 "Logical : Expr left, Token operator, Expr right",
+                "Lambda : Stmt.Function function",
                 "Grouping : Expr expression",
                 "Literal : Object value",
                 "Call : Expr callee, Token paren, List<Expr> arguments",

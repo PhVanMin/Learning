@@ -44,8 +44,10 @@ public class Parser {
         }
     }
 
-    private Stmt function(String type) {
-        Token name = consume(IDENTIFIER, "Expect " + type + " name.");
+    private Stmt.Function function(String type) {
+        Token name = null;
+        if (check(IDENTIFIER) || !type.equals("lambda"))
+            name = consume(IDENTIFIER, "Expect " + type + " name.");
 
         consume(LEFT_PAREN, "Expect '(' after " + type + " name.");
         List<Token> parameters = new ArrayList<>();
@@ -64,7 +66,7 @@ public class Parser {
         return new Stmt.Function(name, parameters, body);
     }
 
-    private Stmt varDeclaration() {
+    private Stmt.Var varDeclaration() {
         Token name = consume(IDENTIFIER, "Expect variable name.");
 
         Expr initializer = null;
@@ -391,6 +393,10 @@ public class Parser {
 
         if (match(NUMBER, TokenType.STRING))
             return new Expr.Literal(peek(-1).literal);
+
+        if (match(FUN)) {
+            return new Expr.Lambda(function("lambda"));
+        }
 
         if (match(IDENTIFIER))
             return new Expr.Variable(peek(-1));
