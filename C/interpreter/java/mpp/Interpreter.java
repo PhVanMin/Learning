@@ -2,10 +2,12 @@ package mpp;
 
 import static mpp.TokenType.OR;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import mpp.Expr.Assign;
 import mpp.Expr.Binary;
+import mpp.Expr.Call;
 import mpp.Expr.Grouping;
 import mpp.Expr.Literal;
 import mpp.Expr.Logical;
@@ -13,13 +15,36 @@ import mpp.Expr.Ternary;
 import mpp.Expr.Unary;
 import mpp.Expr.Variable;
 import mpp.Stmt.Break;
+import mpp.Stmt.Continue;
+import mpp.Stmt.Function;
 import mpp.Stmt.If;
 import mpp.Stmt.While;
 
 public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
-    private Environment environment = new Environment();
+    final Environment globals = new Environment();
+    private Environment environment = globals;
     private boolean cmd;
-    private boolean inLoop = true;
+    private boolean breakLoop = false;
+    private boolean continueLoop = false;
+
+    public Interpreter() {
+        globals.define("clock", new MinhppCallable() {
+            @Override
+            public int arity() {
+                return 0;
+            }
+
+            @Override
+            public Object call(Interpreter interpreter, List<Object> args) {
+                return (double) System.currentTimeMillis() / 1000.0;
+            }
+
+            @Override
+            public String toString() {
+                return "<native fn>";
+            }
+        });
+    }
 
     public void interpret(List<Stmt> stmts, boolean cmd) {
         this.cmd = cmd;
@@ -229,7 +254,7 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
         return false;
     }
 
-    private void executeBlock(List<Stmt> stmts, Environment env) {
+    public void executeBlock(List<Stmt> stmts, Environment env) {
         Environment prevEnv = environment;
 
         try {
@@ -237,7 +262,10 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
 
             for (Stmt stmt : stmts) {
                 execute(stmt);
-                if (!inLoop) break;
+                if (breakLoop || continueLoop) {
+                    continueLoop = false;
+                    break;
+                }
             }
         } finally {
             environment = prevEnv;
@@ -271,17 +299,60 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
 
     @Override
     public Void visitWhile(While stmt) {
-        while (inLoop && isTruthy(evaluate(stmt.condition))) {
+        while (!breakLoop && isTruthy(evaluate(stmt.condition))) {
             execute(stmt.whileStmt);
         }
 
-        inLoop = true;
+        breakLoop = false;
         return null;
     }
 
-	@Override
-	public Void visitBreak(Break stmt) {
-        inLoop = false;    
+    @Override
+    public Void visitBreak(Break stmt) {
+        breakLoop = true;
         return null;
+    }
+
+    @Override
+    public Void visitContinue(Continue stmt) {
+        continueLoop = true;
+        return null;
+    }
+
+    @Override
+    public Object visitCall(Call expr) {
+        Object callee = evaluate(expr.callee);
+
+        List<Object> arguments = new ArrayList<>();
+        for (Expr arg : expr.arguments) {
+            arguments.add(evaluate(arg));
+        }
+
+        if (!(callee instanceof MinhppCallable)) {
+            throw new RuntimeError(expr.paren, "Can only call functions and classes.");
+        }
+
+        MinhppCallable function = (MinhppCallable) callee;
+        if (arguments.size() != function.arity()) {
+            throw new RuntimeError(expr.paren,
+                    "Expected " + function.arity() + " arguments but got " + arguments.size() + ".");
+        }
+        return function.call(this, arguments);
+    }
+
+	@Override
+	public Void visitFunction(Function stmt) {
+        MinhppFunction function = new MinhppFunction(stmt, environment);
+        environment.define(stmt.name.lexeme, function);
+        return null;
+	}
+
+	@Override
+	public Void visitReturn(Stmt.Return stmt) {
+        Object value = null;
+
+        if (stmt.value != null) value = evaluate(stmt.value);
+
+        throw new Return(value);
 	}
 }

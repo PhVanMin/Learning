@@ -62,7 +62,7 @@ public class Minhpp {
     }
 
     public static void runtimeError(RuntimeError error) {
-        System.err.println(error.getMessage() + "\n[line " + error.token.line + "]");
+        System.err.println(error.getMessage() + " [line " + error.token.line + "]");
         hadRuntimeError = true;
     }
 

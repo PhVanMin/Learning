@@ -54,18 +54,18 @@ public class AstPrinter implements Expr.Visitor<String> {
         return parenthesize("tenary", expr.condition, expr.trueExpr, expr.falseExpr);
     }
 
-	@Override
-	public String visitAssign(Assign expr) {
+    @Override
+    public String visitAssign(Assign expr) {
         return parenthesize("assign " + expr.name.lexeme, expr.value);
-	}
+    }
 
-	@Override
-	public String visitLogical(Logical expr) {
+    @Override
+    public String visitLogical(Logical expr) {
         return parenthesize(expr.operator.lexeme, expr.left, expr.right);
-	}
+    }
 
-	@Override
-	public String visitVariable(Variable expr) {
+    @Override
+    public String visitVariable(Variable expr) {
         return parenthesize("get " + expr.name.lexeme);
-	}
+    }
 }

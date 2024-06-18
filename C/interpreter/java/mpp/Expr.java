@@ -10,6 +10,7 @@ public abstract class Expr {
         T visitLogical(Logical expr);
         T visitGrouping(Grouping expr);
         T visitLiteral(Literal expr);
+        T visitCall(Call expr);
         T visitVariable(Variable expr);
         T visitUnary(Unary expr);
     }
@@ -99,6 +100,22 @@ public abstract class Expr {
         @Override
         <T> T accept(Visitor<T> visitor) {
             return visitor.visitLiteral(this);
+        }
+    }
+
+    public static class Call extends Expr {
+        final Expr callee;
+        final Token paren;
+        final List<Expr> arguments;
+        public Call(Expr callee, Token paren, List<Expr> arguments) {
+            this.callee = callee;
+            this.paren = paren;
+            this.arguments = arguments;
+        }
+
+        @Override
+        <T> T accept(Visitor<T> visitor) {
+            return visitor.visitCall(this);
         }
     }
 

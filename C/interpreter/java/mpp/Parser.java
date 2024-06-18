@@ -1,6 +1,7 @@
 package mpp;
 
 import static mpp.TokenType.*;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -12,6 +13,7 @@ public class Parser {
     private final List<Token> tokens;
     private int current = 0;
     private int inLoop = 0;
+    private boolean inCall = false;
 
     public Parser(List<Token> tokens) {
         this.tokens = tokens;
@@ -32,11 +34,34 @@ public class Parser {
             if (match(VAR))
                 return varDeclaration();
 
+            if (match(FUN))
+                return function("function");
+
             return statement();
         } catch (ParseError error) {
             synchronizeError();
             return null;
         }
+    }
+
+    private Stmt function(String type) {
+        Token name = consume(IDENTIFIER, "Expect " + type + " name.");
+
+        consume(LEFT_PAREN, "Expect '(' after " + type + " name.");
+        List<Token> parameters = new ArrayList<>();
+        if (!check(RIGHT_PAREN)) {
+            do {
+                if (parameters.size() == 255)
+                    error(peek(0), "Can't have more than 255 parameters.");
+
+                parameters.add(consume(IDENTIFIER, "Expect parameter name."));
+            } while (match(COMMA));
+        }
+        consume(RIGHT_PAREN, "Expect ')' after parameters.");
+
+        consume(LEFT_BRACE, "Expect '{' before " + type + " body.");
+        List<Stmt> body = block();
+        return new Stmt.Function(name, parameters, body);
     }
 
     private Stmt varDeclaration() {
@@ -58,6 +83,12 @@ public class Parser {
         if (match(BREAK))
             return breakStatement();
 
+        if (match(CONTINUE))
+            return continueStatement();
+
+        if (match(RETURN))
+            return returnStatement();
+
         if (match(WHILE))
             return whileStatement();
 
@@ -73,10 +104,30 @@ public class Parser {
         return expressionStatement();
     }
 
+    private Stmt returnStatement() {
+        Token name = peek(-1);
+        Expr value = null;
+
+        if (!check(SEMICOLON)) {
+            value = expression();
+        }
+
+        consume(SEMICOLON, "Expect ';' after return value.");
+        return new Stmt.Return(name, value);
+    }
+
     private Stmt breakStatement() {
-        if (inLoop == 0) throw error(peek(-1), "Break outside of loop.");
+        if (inLoop == 0)
+            throw error(peek(-1), "Break outside of loop.");
         consume(SEMICOLON, "Expect ';' after break.");
         return new Stmt.Break();
+    }
+
+    private Stmt continueStatement() {
+        if (inLoop == 0)
+            throw error(peek(-1), "Break outside of loop.");
+        consume(SEMICOLON, "Expect ';' after break.");
+        return new Stmt.Continue();
     }
 
     private Stmt forStatement() {
@@ -123,7 +174,7 @@ public class Parser {
         consume(LEFT_PAREN, "Expected '(' after while.");
         Expr condition = expression();
         consume(RIGHT_PAREN, "Expected ')' after while condition.");
-        
+
         inLoop++;
         Stmt whileStmt = statement();
         inLoop--;
@@ -180,10 +231,12 @@ public class Parser {
     private Expr comma() {
         Expr expr = assignment();
 
-        while (match(COMMA)) {
-            Token operator = peek(-1);
-            Expr right = comma();
-            expr = new Expr.Binary(expr, operator, right);
+        if (!inCall) {
+            while (match(COMMA)) {
+                Token operator = peek(-1);
+                Expr right = comma();
+                expr = new Expr.Binary(expr, operator, right);
+            }
         }
 
         return expr;
@@ -298,7 +351,32 @@ public class Parser {
             return new Expr.Unary(operator, right);
         }
 
-        return primary();
+        return call();
+    }
+
+    private Expr call() {
+        Expr calleeExpr = primary();
+
+        if (match(LEFT_PAREN)) {
+            inCall = true;
+            Token paren = peek(-1);
+            List<Expr> arguments = new ArrayList<>();
+
+            if (!check(RIGHT_PAREN)) {
+                do {
+                    if (arguments.size() == 255) {
+                        error(peek(0), "Can't have more than 255 arguments.");
+                    }
+                    arguments.add(expression());
+                } while (match(COMMA));
+            }
+
+            consume(RIGHT_PAREN, "Expected ';' after arguments.");
+            inCall = false;
+            return new Expr.Call(calleeExpr, paren, arguments);
+        }
+
+        return calleeExpr;
     }
 
     private Expr primary() {

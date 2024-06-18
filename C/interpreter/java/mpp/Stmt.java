@@ -10,6 +10,9 @@ public abstract class Stmt {
         T visitVar(Var stmt);
         T visitExpression(Expression stmt);
         T visitBreak(Break stmt);
+        T visitContinue(Continue stmt);
+        T visitReturn(Return stmt);
+        T visitFunction(Function stmt);
         T visitPrint(Print stmt);
     }
 
@@ -88,6 +91,44 @@ public abstract class Stmt {
         @Override
         <T> T accept(Visitor<T> visitor) {
             return visitor.visitBreak(this);
+        }
+    }
+
+    public static class Continue extends Stmt {
+
+        @Override
+        <T> T accept(Visitor<T> visitor) {
+            return visitor.visitContinue(this);
+        }
+    }
+
+    public static class Return extends Stmt {
+        final Token name;
+        final Expr value;
+        public Return(Token name, Expr value) {
+            this.name = name;
+            this.value = value;
+        }
+
+        @Override
+        <T> T accept(Visitor<T> visitor) {
+            return visitor.visitReturn(this);
+        }
+    }
+
+    public static class Function extends Stmt {
+        final Token name;
+        final List<Token> params;
+        final List<Stmt> body;
+        public Function(Token name, List<Token> params, List<Stmt> body) {
+            this.name = name;
+            this.params = params;
+            this.body = body;
+        }
+
+        @Override
+        <T> T accept(Visitor<T> visitor) {
+            return visitor.visitFunction(this);
         }
     }
 

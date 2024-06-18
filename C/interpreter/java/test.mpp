@@ -1,16 +1,10 @@
-var c1 = true;
-var c2 = true;
-
-while (c1) {
-    print "1st while";
-    var i = 0;
-    while (c2) {
-        print i;
-        i = i + 1;
-        if (i == 5) break;
+fun f() {
+    fun f() {
+        print "F";
     }
-    print "Exit 2nd while";
-    if (i != 0) break;
+
+    return f; 
 }
 
-print "Exit 1st while";
+var a = f();
+a();
