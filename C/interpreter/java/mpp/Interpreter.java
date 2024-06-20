@@ -14,18 +14,19 @@ import mpp.Expr.Logical;
 import mpp.Expr.Ternary;
 import mpp.Expr.Unary;
 import mpp.Expr.Variable;
-import mpp.Stmt.Break;
-import mpp.Stmt.Continue;
 import mpp.Stmt.Function;
 import mpp.Stmt.If;
-import mpp.Stmt.While;
 
 public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
     final Environment globals = new Environment();
     private Environment environment = globals;
     private boolean cmd;
-    private boolean breakLoop = false;
-    private boolean continueLoop = false;
+
+    final class Break extends RuntimeException {
+    }
+
+    final class Continue extends RuntimeException {
+    }
 
     public Interpreter() {
         globals.define("clock", new MinhppCallable() {
@@ -173,6 +174,7 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
 
     @Override
     public Void visitVar(Stmt.Var stmt) {
+        environment.checkDefine(stmt.name);
         Object value = null;
 
         if (stmt.initializer != null) {
@@ -262,11 +264,9 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
 
             for (Stmt stmt : stmts) {
                 execute(stmt);
-                if (breakLoop || continueLoop) {
-                    continueLoop = false;
-                    break;
-                }
             }
+        } catch (Break | Continue bc) {
+            throw bc;
         } finally {
             environment = prevEnv;
         }
@@ -298,25 +298,31 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
     }
 
     @Override
-    public Void visitWhile(While stmt) {
-        while (!breakLoop && isTruthy(evaluate(stmt.condition))) {
-            execute(stmt.whileStmt);
+    public Void visitLoop(Stmt.Loop stmt) {
+        while (isTruthy(evaluate(stmt.condition))) {
+            try {
+                execute(stmt.whileStmt);
+                if (stmt.increment != null)
+                    execute(stmt.increment);
+            } catch (Break b) {
+                break;
+            } catch (Continue c) {
+                if (stmt.increment != null)
+                    execute(stmt.increment);
+            }
         }
 
-        breakLoop = false;
         return null;
     }
 
     @Override
-    public Void visitBreak(Break stmt) {
-        breakLoop = true;
-        return null;
+    public Void visitBreak(Stmt.Break stmt) {
+        throw new Break();
     }
 
     @Override
-    public Void visitContinue(Continue stmt) {
-        continueLoop = true;
-        return null;
+    public Void visitContinue(Stmt.Continue stmt) {
+        throw new Continue();
     }
 
     @Override

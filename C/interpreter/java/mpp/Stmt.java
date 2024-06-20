@@ -5,7 +5,7 @@ import java.util.List;
 public abstract class Stmt {
     interface Visitor<T> {
         T visitBlock(Block stmt);
-        T visitWhile(While stmt);
+        T visitLoop(Loop stmt);
         T visitIf(If stmt);
         T visitVar(Var stmt);
         T visitExpression(Expression stmt);
@@ -30,17 +30,19 @@ public abstract class Stmt {
         }
     }
 
-    public static class While extends Stmt {
+    public static class Loop extends Stmt {
         final Expr condition;
         final Stmt whileStmt;
-        public While(Expr condition, Stmt whileStmt) {
+        final Stmt increment;
+        public Loop(Expr condition, Stmt whileStmt, Stmt increment) {
             this.condition = condition;
             this.whileStmt = whileStmt;
+            this.increment = increment;
         }
 
         @Override
         <T> T accept(Visitor<T> visitor) {
-            return visitor.visitWhile(this);
+            return visitor.visitLoop(this);
         }
     }
 

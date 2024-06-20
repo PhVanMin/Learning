@@ -14,6 +14,7 @@ public class Parser {
     private int current = 0;
     private int inLoop = 0;
     private boolean inCall = false;
+    private boolean inFunc = false;
 
     public Parser(List<Token> tokens) {
         this.tokens = tokens;
@@ -45,6 +46,7 @@ public class Parser {
     }
 
     private Stmt.Function function(String type) {
+        inFunc = true;
         Token name = null;
         if (check(IDENTIFIER) || !type.equals("lambda"))
             name = consume(IDENTIFIER, "Expect " + type + " name.");
@@ -63,6 +65,7 @@ public class Parser {
 
         consume(LEFT_BRACE, "Expect '{' before " + type + " body.");
         List<Stmt> body = block();
+        inFunc = false;
         return new Stmt.Function(name, parameters, body);
     }
 
@@ -107,6 +110,9 @@ public class Parser {
     }
 
     private Stmt returnStatement() {
+        if (!inFunc)
+            throw error(peek(-1), "Return outside of function.");
+
         Token name = peek(-1);
         Expr value = null;
 
@@ -159,13 +165,13 @@ public class Parser {
         Stmt body = statement();
         inLoop--;
 
-        if (increment != null)
-            body = new Stmt.Block(Arrays.asList(body, new Stmt.Expression(increment)));
-
         if (condition == null)
             condition = new Expr.Literal(true);
 
-        body = new Stmt.While(condition, body);
+        if (increment != null)
+            body = new Stmt.Loop(condition, body, new Stmt.Expression(increment));
+        else
+            body = new Stmt.Loop(condition, body, null);
 
         if (ini != null)
             body = new Stmt.Block(Arrays.asList(ini, body));
@@ -181,7 +187,7 @@ public class Parser {
         Stmt whileStmt = statement();
         inLoop--;
 
-        return new Stmt.While(condition, whileStmt);
+        return new Stmt.Loop(condition, whileStmt, null);
     }
 
     private Stmt ifStatement() {

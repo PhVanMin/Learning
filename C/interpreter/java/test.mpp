@@ -1,8 +1,13 @@
+var count = 0;
+
 fun f() {
-    return fun () {
-        print 1;
-    };
+    while (count < 2) {
+        for (var i = 0; i < 5; i = i + 1) {
+            if (i == 2) continue;
+            print i;
+        }
+        count = count + 1;
+    }
 }
 
-var a = f();
-a();
+f();
