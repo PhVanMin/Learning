@@ -30,12 +30,6 @@ public class Environment {
         values.put(name, value);
     }
 
-    public void checkDefine(Token name) {
-        if (values.containsKey(name.lexeme)) {
-            throw new RuntimeError(name, "Predefined variable '" + name.lexeme + "'.");
-        }
-    }
-
     public void assign(Token name, Object value) {
         if (values.containsKey(name.lexeme)) {
             values.put(name.lexeme, value);
@@ -48,5 +42,21 @@ public class Environment {
         }
 
         throw new RuntimeError(name, "Undefined variable '" + name.lexeme + "'.");
+    }
+
+    public Object getAt(Integer distance, String lexeme) {
+        return ancestor(distance).values.get(lexeme);
+    }
+
+    private Environment ancestor(Integer distance) {
+        Environment environment = this;
+        for (int i = 0; i < distance; ++i) {
+            environment = environment.enclosing;
+        }
+        return environment;
+    }
+
+    public void assignAt(Integer distance, Token name, Object value) {
+        ancestor(distance).values.put(name.lexeme, value);
     }
 }

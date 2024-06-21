@@ -2,7 +2,9 @@ package mpp;
 
 import static mpp.TokenType.OR;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import mpp.Expr.Assign;
 import mpp.Expr.Binary;
@@ -21,6 +23,7 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
     final Environment globals = new Environment();
     private Environment environment = globals;
     private boolean cmd;
+    private final Map<Expr, Integer> locals = new HashMap<>();
 
     final class Break extends RuntimeException {
     }
@@ -45,6 +48,10 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
                 return "<native fn>";
             }
         });
+    }
+
+    public void resolve(Expr expr, int depth) {
+        locals.put(expr, depth);
     }
 
     public void interpret(List<Stmt> stmts, boolean cmd) {
@@ -174,7 +181,6 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
 
     @Override
     public Void visitVar(Stmt.Var stmt) {
-        environment.checkDefine(stmt.name);
         Object value = null;
 
         if (stmt.initializer != null) {
@@ -187,17 +193,29 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
 
     @Override
     public Object visitVariable(Variable expr) {
-        Object value = environment.get(expr.name);
-        if (value != null)
-            return value;
+        return lookUpVariable(expr.name, expr);
+    }
 
-        throw new RuntimeError(expr.name, "Expected non-null value of variable.");
+    private Object lookUpVariable(Token name, Expr expr) {
+        Integer distance = locals.get(expr);
+        if (distance != null) {
+            return environment.getAt(distance, name.lexeme);
+        } else {
+            return globals.get(name);
+        }
     }
 
     @Override
     public Object visitAssign(Assign expr) {
         Object value = evaluate(expr.value);
-        environment.assign(expr.name, value);
+
+        Integer distance = locals.get(expr);
+        if (distance != null) {
+            environment.assignAt(distance, expr.name, value);
+        } else {
+            globals.assign(expr.name, value);
+        }
+
         return value;
     }
 

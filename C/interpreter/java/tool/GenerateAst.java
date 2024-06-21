@@ -31,8 +31,8 @@ public class GenerateAst {
                 "If : Expr condition, Stmt trueStmt, Stmt falseStmt",
                 "Var : Token name, Expr initializer",
                 "Expression : Expr expression",
-                "Break",
-                "Continue",
+                "Break : Token name",
+                "Continue : Token name",
                 "Return : Token name, Expr value",
                 "Function : Token name, List<Token> params, List<Stmt> body",
                 "Print : Expr expression"));

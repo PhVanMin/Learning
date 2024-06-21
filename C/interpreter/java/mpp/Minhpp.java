@@ -51,9 +51,16 @@ public class Minhpp {
     private static void run(String source, boolean cmd) {
         Scanner scanner = new Scanner(source);
         List<Token> tokens = scanner.scanTokens();
-        if (cmd) tokens.add(tokens.size() - 1, new Token(TokenType.SEMICOLON, ";", null, 1));
+        if (cmd)
+            tokens.add(tokens.size() - 1, new Token(TokenType.SEMICOLON, ";", null, 1));
         Parser parser = new Parser(tokens);
         List<Stmt> statements = parser.parse();
+
+        if (hadError)
+            return;
+
+        Resolver resolver = new Resolver(interpreter);
+        resolver.resolve(statements);
 
         if (hadError)
             return;

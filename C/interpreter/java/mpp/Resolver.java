@@ -1,0 +1,260 @@
+package mpp;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Stack;
+
+import mpp.Expr.Assign;
+import mpp.Expr.Binary;
+import mpp.Expr.Call;
+import mpp.Expr.Grouping;
+import mpp.Expr.Lambda;
+import mpp.Expr.Literal;
+import mpp.Expr.Logical;
+import mpp.Expr.Ternary;
+import mpp.Expr.Unary;
+import mpp.Expr.Variable;
+import mpp.Stmt.Block;
+import mpp.Stmt.Break;
+import mpp.Stmt.Continue;
+import mpp.Stmt.Expression;
+import mpp.Stmt.Function;
+import mpp.Stmt.If;
+import mpp.Stmt.Loop;
+import mpp.Stmt.Print;
+import mpp.Stmt.Return;
+import mpp.Stmt.Var;
+
+class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
+    private enum FunctionType {
+        NONE, FUNCTION
+    }
+
+    private boolean inLoop = false;
+    private FunctionType currentFunction = FunctionType.NONE;
+    private final Interpreter interpreter;
+    private Stack<Map<String, Boolean>> scopes = new Stack<>();
+
+    Resolver(Interpreter interpreter) {
+        this.interpreter = interpreter;
+    }
+
+    public void resolve(List<Stmt> stmts) {
+        for (Stmt stmt : stmts)
+            resolve(stmt);
+    }
+
+    private void resolve(Stmt stmt) {
+        stmt.accept(this);
+    }
+
+    private void resolve(Expr expr) {
+        expr.accept(this);
+    }
+
+    private void startScope() {
+        scopes.push(new HashMap<String, Boolean>());
+    }
+
+    private void endScope() {
+        scopes.pop();
+    }
+
+    private void declare(Token name) {
+        if (scopes.isEmpty())
+            return;
+
+        Map<String, Boolean> scope = scopes.peek();
+        if (scope.containsKey(name.lexeme)) {
+            Minhpp.error(name, "A variable with this name already exists in this scope.");
+        }
+        scope.put(name.lexeme, false);
+    }
+
+    private void define(Token name) {
+        if (scopes.isEmpty())
+            return;
+        scopes.peek().put(name.lexeme, true);
+    }
+
+    private void resolveLocal(Expr expr, Token name) {
+        for (int i = scopes.size() - 1; i >= 0; --i) {
+            if (scopes.get(i).containsKey(name.lexeme)) {
+                interpreter.resolve(expr, scopes.size() - 1 - i);
+                return;
+            }
+        }
+    }
+
+    @Override
+    public Void visitBlock(Block stmt) {
+        startScope();
+        resolve(stmt.statements);
+        endScope();
+        return null;
+    }
+
+    @Override
+    public Void visitLoop(Loop stmt) {
+        inLoop = true;
+        resolve(stmt.condition);
+        resolve(stmt.whileStmt);
+        if (stmt.increment != null)
+            resolve(stmt.increment);
+        inLoop = false;
+        return null;
+    }
+
+    @Override
+    public Void visitIf(If stmt) {
+        resolve(stmt.condition);
+        resolve(stmt.trueStmt);
+        if (stmt.falseStmt != null)
+            resolve(stmt.falseStmt);
+        return null;
+    }
+
+    @Override
+    public Void visitVar(Var stmt) {
+        declare(stmt.name);
+
+        if (stmt.initializer != null)
+            resolve(stmt.initializer);
+
+        define(stmt.name);
+        return null;
+    }
+
+    @Override
+    public Void visitExpression(Expression stmt) {
+        resolve(stmt.expression);
+        return null;
+    }
+
+    @Override
+    public Void visitBreak(Break stmt) {
+        if (!inLoop)
+            Minhpp.error(stmt.name, "Not in loop statement.");
+        return null;
+    }
+
+    @Override
+    public Void visitContinue(Continue stmt) {
+        if (!inLoop)
+            Minhpp.error(stmt.name, "Not in loop statement.");
+        return null;
+    }
+
+    @Override
+    public Void visitReturn(Return stmt) {
+        if (currentFunction == FunctionType.NONE) {
+            Minhpp.error(stmt.name, "Can't return from top-level code.");
+        }
+
+        if (stmt.value != null)
+            resolve(stmt.value);
+        return null;
+    }
+
+    @Override
+    public Void visitFunction(Function stmt) {
+        declare(stmt.name);
+        define(stmt.name);
+
+        resolveFunction(stmt, FunctionType.FUNCTION);
+        return null;
+    }
+
+    private void resolveFunction(Function function, FunctionType type) {
+        FunctionType enclosingFunction = currentFunction;
+        currentFunction = type;
+        startScope();
+
+        for (Token param : function.params) {
+            declare(param);
+            define(param);
+        }
+
+        resolve(function.body);
+        endScope();
+        currentFunction = enclosingFunction;
+    }
+
+    @Override
+    public Void visitPrint(Print stmt) {
+        resolve(stmt.expression);
+        return null;
+    }
+
+    @Override
+    public Void visitBinary(Binary expr) {
+        resolve(expr.left);
+        resolve(expr.right);
+        return null;
+    }
+
+    @Override
+    public Void visitAssign(Assign expr) {
+        resolve(expr.value);
+        resolveLocal(expr, expr.name);
+        return null;
+    }
+
+    @Override
+    public Void visitTernary(Ternary expr) {
+        resolve(expr.condition);
+        resolve(expr.trueExpr);
+        resolve(expr.falseExpr);
+        return null;
+    }
+
+    @Override
+    public Void visitLogical(Logical expr) {
+        resolve(expr.left);
+        resolve(expr.right);
+        return null;
+    }
+
+    @Override
+    public Void visitLambda(Lambda expr) {
+        return null;
+    }
+
+    @Override
+    public Void visitGrouping(Grouping expr) {
+        resolve(expr.expression);
+        return null;
+    }
+
+    @Override
+    public Void visitLiteral(Literal expr) {
+        return null;
+    }
+
+    @Override
+    public Void visitCall(Call expr) {
+        resolve(expr.callee);
+        for (Expr e : expr.arguments) {
+            resolve(e);
+        }
+        return null;
+    }
+
+    @Override
+    public Void visitVariable(Variable expr) {
+        if (!scopes.empty() && scopes.peek().get(expr.name.lexeme) == Boolean.FALSE) {
+            Minhpp.error(expr.name, "Can't read local variable in its own initializer");
+        }
+
+        resolveLocal(expr, expr.name);
+        return null;
+    }
+
+    @Override
+    public Void visitUnary(Unary expr) {
+        resolve(expr.right);
+        return null;
+    }
+
+}

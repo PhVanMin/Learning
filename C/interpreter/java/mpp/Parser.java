@@ -12,9 +12,7 @@ public class Parser {
 
     private final List<Token> tokens;
     private int current = 0;
-    private int inLoop = 0;
     private boolean inCall = false;
-    private boolean inFunc = false;
 
     public Parser(List<Token> tokens) {
         this.tokens = tokens;
@@ -46,7 +44,6 @@ public class Parser {
     }
 
     private Stmt.Function function(String type) {
-        inFunc = true;
         Token name = null;
         if (check(IDENTIFIER) || !type.equals("lambda"))
             name = consume(IDENTIFIER, "Expect " + type + " name.");
@@ -65,7 +62,6 @@ public class Parser {
 
         consume(LEFT_BRACE, "Expect '{' before " + type + " body.");
         List<Stmt> body = block();
-        inFunc = false;
         return new Stmt.Function(name, parameters, body);
     }
 
@@ -110,9 +106,6 @@ public class Parser {
     }
 
     private Stmt returnStatement() {
-        if (!inFunc)
-            throw error(peek(-1), "Return outside of function.");
-
         Token name = peek(-1);
         Expr value = null;
 
@@ -125,17 +118,13 @@ public class Parser {
     }
 
     private Stmt breakStatement() {
-        if (inLoop == 0)
-            throw error(peek(-1), "Break outside of loop.");
         consume(SEMICOLON, "Expect ';' after break.");
-        return new Stmt.Break();
+        return new Stmt.Break(peek(-2));
     }
 
     private Stmt continueStatement() {
-        if (inLoop == 0)
-            throw error(peek(-1), "Break outside of loop.");
         consume(SEMICOLON, "Expect ';' after break.");
-        return new Stmt.Continue();
+        return new Stmt.Continue(peek(-2));
     }
 
     private Stmt forStatement() {
@@ -161,9 +150,7 @@ public class Parser {
         }
         consume(RIGHT_PAREN, "Expected ')' after for statement.");
 
-        inLoop++;
         Stmt body = statement();
-        inLoop--;
 
         if (condition == null)
             condition = new Expr.Literal(true);
@@ -183,9 +170,7 @@ public class Parser {
         Expr condition = expression();
         consume(RIGHT_PAREN, "Expected ')' after while condition.");
 
-        inLoop++;
         Stmt whileStmt = statement();
-        inLoop--;
 
         return new Stmt.Loop(condition, whileStmt, null);
     }
@@ -228,11 +213,6 @@ public class Parser {
     }
 
     private Expr expression() {
-        if (match(EQUAL_EQUAL)) {
-            System.out.println("No left-hand operand.");
-            synchronizeError();
-        }
-
         return comma();
     }
 
@@ -255,7 +235,7 @@ public class Parser {
 
         if (match(EQUAL)) {
             Token equals = peek(-1);
-            Expr value = assignment();
+            Expr value = expression();
 
             if (expr instanceof Expr.Variable) {
                 Token name = ((Expr.Variable) expr).name;

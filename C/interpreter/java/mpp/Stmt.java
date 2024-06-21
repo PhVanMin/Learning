@@ -89,6 +89,10 @@ public abstract class Stmt {
     }
 
     public static class Break extends Stmt {
+        final Token name;
+        public Break(Token name) {
+            this.name = name;
+        }
 
         @Override
         <T> T accept(Visitor<T> visitor) {
@@ -97,6 +101,10 @@ public abstract class Stmt {
     }
 
     public static class Continue extends Stmt {
+        final Token name;
+        public Continue(Token name) {
+            this.name = name;
+        }
 
         @Override
         <T> T accept(Visitor<T> visitor) {
