@@ -29,7 +29,7 @@ public class Parser {
     }
 
     private Stmt declaration() {
-        try {
+        try a{
             if (match(VAR))
                 return varDeclaration();
 

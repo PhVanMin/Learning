@@ -34,7 +34,7 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
     private boolean inLoop = false;
     private FunctionType currentFunction = FunctionType.NONE;
     private final Interpreter interpreter;
-    private Stack<Map<String, Boolean>> scopes = new Stack<>();
+    private Stack<Map<String, LocalVariable>> scopes = new Stack<>();
 
     Resolver(Interpreter interpreter) {
         this.interpreter = interpreter;
@@ -53,34 +53,50 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
         expr.accept(this);
     }
 
+    private class LocalVariable {
+        boolean isUsed;
+        Token name;
+
+        LocalVariable(Token name) {
+            this.name = name;
+        }
+    }
+
     private void startScope() {
-        scopes.push(new HashMap<String, Boolean>());
+        scopes.push(new HashMap<String, LocalVariable>());
     }
 
     private void endScope() {
-        scopes.pop();
+        Map<String, LocalVariable> scope = scopes.pop();
+        for (LocalVariable variable : scope.values()) {
+            if (!variable.isUsed)
+                Minhpp.warning(variable.name, "Variable " + variable.name.lexeme + " is not used locally.");
+        }
     }
 
     private void declare(Token name) {
         if (scopes.isEmpty())
             return;
 
-        Map<String, Boolean> scope = scopes.peek();
+        Map<String, LocalVariable> scope = scopes.peek();
         if (scope.containsKey(name.lexeme)) {
             Minhpp.error(name, "A variable with this name already exists in this scope.");
         }
-        scope.put(name.lexeme, false);
+        scope.put(name.lexeme, new LocalVariable(name));
     }
 
-    private void define(Token name) {
-        if (scopes.isEmpty())
-            return;
-        scopes.peek().put(name.lexeme, true);
-    }
+    /*
+     * private void define(Token name) {
+     * if (scopes.isEmpty())
+     * return;
+     * scopes.peek().put(name.lexeme, true);
+     * }
+     */
 
     private void resolveLocal(Expr expr, Token name) {
         for (int i = scopes.size() - 1; i >= 0; --i) {
             if (scopes.get(i).containsKey(name.lexeme)) {
+                scopes.get(i).get(name.lexeme).isUsed = true;
                 interpreter.resolve(expr, scopes.size() - 1 - i);
                 return;
             }
@@ -117,12 +133,11 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
 
     @Override
     public Void visitVar(Var stmt) {
-        declare(stmt.name);
-
         if (stmt.initializer != null)
             resolve(stmt.initializer);
 
-        define(stmt.name);
+        declare(stmt.name);
+        // define(stmt.name);
         return null;
     }
 
@@ -160,7 +175,7 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
     @Override
     public Void visitFunction(Function stmt) {
         declare(stmt.name);
-        define(stmt.name);
+        // define(stmt.name);
 
         resolveFunction(stmt, FunctionType.FUNCTION);
         return null;
@@ -173,7 +188,7 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
 
         for (Token param : function.params) {
             declare(param);
-            define(param);
+            // define(param);
         }
 
         resolve(function.body);
@@ -243,9 +258,13 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
 
     @Override
     public Void visitVariable(Variable expr) {
-        if (!scopes.empty() && scopes.peek().get(expr.name.lexeme) == Boolean.FALSE) {
-            Minhpp.error(expr.name, "Can't read local variable in its own initializer");
-        }
+        /*
+         * if (!scopes.empty() && scopes.peek().get(expr.name.lexeme) ==
+         * LocalVariable.FALSE)
+         * {
+         * Minhpp.error(expr.name, "Can't read local variable in its own initializer");
+         * }
+         */
 
         resolveLocal(expr, expr.name);
         return null;

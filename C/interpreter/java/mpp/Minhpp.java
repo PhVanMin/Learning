@@ -68,6 +68,10 @@ public class Minhpp {
         interpreter.interpret(statements, cmd);
     }
 
+    public static void warning(Token token, String message) {
+        System.err.println("[line " + token.line + "] Warning: " + message);
+    }
+
     public static void runtimeError(RuntimeError error) {
         System.err.println(error.getMessage() + " [line " + error.token.line + "]");
         hadRuntimeError = true;
