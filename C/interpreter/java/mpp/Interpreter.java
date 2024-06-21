@@ -76,8 +76,7 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
                 if (left instanceof Double && right instanceof Double)
                     return (double) left + (double) right;
 
-                if ((left instanceof Double || left instanceof String)
-                        && (right instanceof Double || right instanceof String))
+                if (left instanceof String || left instanceof String)
                     return stringify(left) + stringify(right);
 
                 throw new RuntimeError(expr.operator, "Operands must be two numbers or two strings.");

@@ -1,6 +1,44 @@
 package mpp;
 
-import static mpp.TokenType.*;
+import static mpp.TokenType.AND;
+import static mpp.TokenType.BANG;
+import static mpp.TokenType.BANG_EQUAL;
+import static mpp.TokenType.BREAK;
+import static mpp.TokenType.COLON;
+import static mpp.TokenType.COMMA;
+import static mpp.TokenType.CONTINUE;
+import static mpp.TokenType.ELSE;
+import static mpp.TokenType.EOF;
+import static mpp.TokenType.EQUAL;
+import static mpp.TokenType.EQUAL_EQUAL;
+import static mpp.TokenType.FALSE;
+import static mpp.TokenType.FOR;
+import static mpp.TokenType.FUN;
+import static mpp.TokenType.GREATER;
+import static mpp.TokenType.GREATER_EQUAL;
+import static mpp.TokenType.IDENTIFIER;
+import static mpp.TokenType.IF;
+import static mpp.TokenType.LEFT_BRACE;
+import static mpp.TokenType.LEFT_PAREN;
+import static mpp.TokenType.LESS;
+import static mpp.TokenType.LESS_EQUAL;
+import static mpp.TokenType.MINUS;
+import static mpp.TokenType.NIL;
+import static mpp.TokenType.NUMBER;
+import static mpp.TokenType.OR;
+import static mpp.TokenType.PERCEN;
+import static mpp.TokenType.PLUS;
+import static mpp.TokenType.PRINT;
+import static mpp.TokenType.QUESTION;
+import static mpp.TokenType.RETURN;
+import static mpp.TokenType.RIGHT_BRACE;
+import static mpp.TokenType.RIGHT_PAREN;
+import static mpp.TokenType.SEMICOLON;
+import static mpp.TokenType.SLASH;
+import static mpp.TokenType.STAR;
+import static mpp.TokenType.TRUE;
+import static mpp.TokenType.VAR;
+import static mpp.TokenType.WHILE;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -12,7 +50,6 @@ public class Parser {
 
     private final List<Token> tokens;
     private int current = 0;
-    private boolean inCall = false;
 
     public Parser(List<Token> tokens) {
         this.tokens = tokens;
@@ -29,7 +66,7 @@ public class Parser {
     }
 
     private Stmt declaration() {
-        try a{
+        try {
             if (match(VAR))
                 return varDeclaration();
 
@@ -45,6 +82,7 @@ public class Parser {
 
     private Stmt.Function function(String type) {
         Token name = null;
+
         if (check(IDENTIFIER) || !type.equals("lambda"))
             name = consume(IDENTIFIER, "Expect " + type + " name.");
 
@@ -219,12 +257,10 @@ public class Parser {
     private Expr comma() {
         Expr expr = assignment();
 
-        if (!inCall) {
-            while (match(COMMA)) {
-                Token operator = peek(-1);
-                Expr right = comma();
-                expr = new Expr.Binary(expr, operator, right);
-            }
+        while (match(COMMA)) {
+            Token operator = peek(-1);
+            Expr right = comma();
+            expr = new Expr.Binary(expr, operator, right);
         }
 
         return expr;
@@ -346,7 +382,6 @@ public class Parser {
         Expr calleeExpr = primary();
 
         if (match(LEFT_PAREN)) {
-            inCall = true;
             Token paren = peek(-1);
             List<Expr> arguments = new ArrayList<>();
 
@@ -355,12 +390,11 @@ public class Parser {
                     if (arguments.size() == 255) {
                         error(peek(0), "Can't have more than 255 arguments.");
                     }
-                    arguments.add(expression());
+                    arguments.add(assignment());
                 } while (match(COMMA));
             }
 
             consume(RIGHT_PAREN, "Expected ';' after arguments.");
-            inCall = false;
             return new Expr.Call(calleeExpr, paren, arguments);
         }
 
