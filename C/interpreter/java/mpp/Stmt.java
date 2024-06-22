@@ -7,6 +7,7 @@ public abstract class Stmt {
         T visitBlock(Block stmt);
         T visitLoop(Loop stmt);
         T visitIf(If stmt);
+        T visitClass(Class stmt);
         T visitVar(Var stmt);
         T visitExpression(Expression stmt);
         T visitBreak(Break stmt);
@@ -59,6 +60,20 @@ public abstract class Stmt {
         @Override
         <T> T accept(Visitor<T> visitor) {
             return visitor.visitIf(this);
+        }
+    }
+
+    public static class Class extends Stmt {
+        final Token name;
+        final List<Stmt.Function> methods;
+        public Class(Token name, List<Stmt.Function> methods) {
+            this.name = name;
+            this.methods = methods;
+        }
+
+        @Override
+        <T> T accept(Visitor<T> visitor) {
+            return visitor.visitClass(this);
         }
     }
 

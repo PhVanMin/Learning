@@ -9,27 +9,31 @@ import java.util.Map;
 import mpp.Expr.Assign;
 import mpp.Expr.Binary;
 import mpp.Expr.Call;
+import mpp.Expr.Get;
 import mpp.Expr.Grouping;
 import mpp.Expr.Lambda;
 import mpp.Expr.Literal;
 import mpp.Expr.Logical;
+import mpp.Expr.Set;
 import mpp.Expr.Ternary;
+import mpp.Expr.This;
 import mpp.Expr.Unary;
 import mpp.Expr.Variable;
+import mpp.Stmt.Class;
 import mpp.Stmt.Function;
 import mpp.Stmt.If;
 
 public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
-    final Environment globals = new Environment();
-    private Environment environment = globals;
-    private boolean cmd;
-    private final Map<Expr, Integer> locals = new HashMap<>();
-
     final class Break extends RuntimeException {
     }
-
     final class Continue extends RuntimeException {
     }
+    final Environment globals = new Environment();
+    private Environment environment = globals;
+
+    private boolean cmd;
+
+    private final Map<Expr, Integer> locals = new HashMap<>();
 
     public Interpreter() {
         globals.define("clock", new MinhppCallable() {
@@ -195,15 +199,6 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
         return lookUpVariable(expr.name, expr);
     }
 
-    private Object lookUpVariable(Token name, Expr expr) {
-        Integer distance = locals.get(expr);
-        if (distance != null) {
-            return environment.getAt(distance, name.lexeme);
-        } else {
-            return globals.get(name);
-        }
-    }
-
     @Override
     public Object visitAssign(Assign expr) {
         Object value = evaluate(expr.value);
@@ -222,55 +217,6 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
     public Void visitBlock(Stmt.Block stmt) {
         executeBlock(stmt.statements, new Environment(environment));
         return null;
-    }
-
-    private void execute(Stmt statement) {
-        statement.accept(this);
-    }
-
-    private String stringify(Object obj) {
-        if (obj == null)
-            return "nil";
-
-        if (obj instanceof Double) {
-            String text = obj.toString();
-
-            if (text.endsWith(".0")) {
-                return text.substring(0, text.length() - 2);
-            }
-        }
-
-        return obj.toString();
-    }
-
-    private Object evaluate(Expr expression) {
-        return expression.accept(this);
-    }
-
-    private void checkNumberOperands(Token operator, Object... operands) {
-        for (Object operand : operands) {
-            if (!(operand instanceof Double))
-                throw new RuntimeError(operator, "Operand must be a number.");
-        }
-    }
-
-    private boolean isEqual(Object a, Object b) {
-        if (a == null && b == null)
-            return true;
-        if (a == null)
-            return false;
-
-        return a.equals(b);
-    }
-
-    private boolean isTruthy(Object obj) {
-        if (obj instanceof Boolean)
-            return (boolean) obj;
-
-        if (obj != null)
-            return true;
-
-        return false;
     }
 
     public void executeBlock(List<Stmt> stmts, Environment env) {
@@ -365,7 +311,7 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
 
     @Override
     public Void visitFunction(Function stmt) {
-        MinhppFunction function = new MinhppFunction(stmt, environment);
+        MinhppFunction function = new MinhppFunction(stmt, environment, false);
         environment.define(stmt.name.lexeme, function);
         return null;
     }
@@ -382,6 +328,108 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
 
     @Override
     public Object visitLambda(Lambda expr) {
-        return new MinhppFunction(expr.function, environment);
+        return new MinhppFunction(expr.function, environment, false);
+    }
+
+    @Override
+    public Void visitClass(Class stmt) {
+        environment.define(stmt.name.lexeme, null);
+
+        Map<String, MinhppFunction> methods = new HashMap<>();
+        for (Stmt.Function method : stmt.methods) {
+            MinhppFunction function = new MinhppFunction(method, environment, method.name.lexeme.equals(stmt.name.lexeme));
+            methods.put(method.name.lexeme, function);
+        }
+
+        MinhppClass mClass = new MinhppClass(stmt.name.lexeme, methods);
+        environment.assign(stmt.name, mClass);
+        return null;
+    }
+
+    @Override
+    public Object visitGet(Get expr) {
+        Object object = evaluate(expr.object);
+
+        if (object instanceof MinhppInstance) {
+            return ((MinhppInstance) object).get(expr.name);
+        }
+
+        throw new RuntimeError(expr.name, "Only instances have property.");
+    }
+
+    @Override
+    public Object visitSet(Set expr) {
+        Object object = evaluate(expr.object);
+
+        if (object instanceof MinhppInstance) {
+            Object value = evaluate(expr.value);
+            ((MinhppInstance) object).set(expr.name, value);
+            return value;
+        }
+
+        throw new RuntimeError(expr.name, "Only instances have fields.");
+    }
+
+    @Override
+	public Object visitThis(This expr) {
+        return lookUpVariable(expr.keyword, expr);
+	}
+
+    private Object lookUpVariable(Token name, Expr expr) {
+        Integer distance = locals.get(expr);
+        if (distance != null) {
+            return environment.getAt(distance, name.lexeme);
+        } else {
+            return globals.get(name);
+        }
+    }
+
+    private void execute(Stmt statement) {
+        statement.accept(this);
+    }
+
+    private String stringify(Object obj) {
+        if (obj == null)
+            return "nil";
+
+        if (obj instanceof Double) {
+            String text = obj.toString();
+
+            if (text.endsWith(".0")) {
+                return text.substring(0, text.length() - 2);
+            }
+        }
+
+        return obj.toString();
+    }
+
+    private Object evaluate(Expr expression) {
+        return expression.accept(this);
+    }
+
+    private void checkNumberOperands(Token operator, Object... operands) {
+        for (Object operand : operands) {
+            if (!(operand instanceof Double))
+                throw new RuntimeError(operator, "Operand must be a number.");
+        }
+    }
+
+    private boolean isEqual(Object a, Object b) {
+        if (a == null && b == null)
+            return true;
+        if (a == null)
+            return false;
+
+        return a.equals(b);
+    }
+
+	private boolean isTruthy(Object obj) {
+        if (obj instanceof Boolean)
+            return (boolean) obj;
+
+        if (obj != null)
+            return true;
+
+        return false;
     }
 }

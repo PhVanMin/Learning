@@ -1,5 +1,7 @@
 package mpp;
 
+import static mpp.TokenType.THIS;
+
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -8,15 +10,19 @@ import java.util.Stack;
 import mpp.Expr.Assign;
 import mpp.Expr.Binary;
 import mpp.Expr.Call;
+import mpp.Expr.Get;
 import mpp.Expr.Grouping;
 import mpp.Expr.Lambda;
 import mpp.Expr.Literal;
 import mpp.Expr.Logical;
+import mpp.Expr.Set;
 import mpp.Expr.Ternary;
+import mpp.Expr.This;
 import mpp.Expr.Unary;
 import mpp.Expr.Variable;
 import mpp.Stmt.Block;
 import mpp.Stmt.Break;
+import mpp.Stmt.Class;
 import mpp.Stmt.Continue;
 import mpp.Stmt.Expression;
 import mpp.Stmt.Function;
@@ -28,23 +34,29 @@ import mpp.Stmt.Var;
 
 class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
     private enum FunctionType {
-        NONE, FUNCTION
+        NONE, FUNCTION, METHOD, INITIALIZER
     }
 
     private enum VarState {
         USED, UNUSED
     }
 
+    private enum ClassType {
+        NONE, CLASS
+    }
+
     private class LocalVariable {
-        VarState state = VarState.UNUSED;
+        VarState state;
         Token name;
 
-        LocalVariable(Token name) {
+        LocalVariable(Token name, VarState state) {
             this.name = name;
+            this.state = state;
         }
     }
 
     private boolean inLoop = false;
+    private ClassType currentClass = ClassType.NONE;
     private FunctionType currentFunction = FunctionType.NONE;
     private final Interpreter interpreter;
     private Stack<Map<String, LocalVariable>> scopes = new Stack<>();
@@ -130,8 +142,11 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
             Minhpp.error(stmt.name, "Can't return from top-level code.");
         }
 
-        if (stmt.value != null)
+        if (stmt.value != null) {
+            if (currentFunction == FunctionType.INITIALIZER)
+                Minhpp.error(stmt.name, "Can't return a value from an initializer.");
             resolve(stmt.value);
+        }
         return null;
     }
 
@@ -224,6 +239,56 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
         return null;
     }
 
+    @Override
+    public Void visitClass(Class stmt) {
+        ClassType enclosingClass = currentClass;
+        currentClass = ClassType.CLASS;
+
+        declare(stmt.name);
+
+        startScope();
+        scopes.peek().put("this",
+                new LocalVariable(
+                        new Token(THIS, "this", null, 0),
+                        VarState.USED));
+
+        for (Stmt.Function method : stmt.methods) {
+            FunctionType declaration = FunctionType.METHOD;
+            if (method.name.lexeme.equals(stmt.name.lexeme))
+                declaration = FunctionType.INITIALIZER;
+            resolveFunction(method, declaration);
+        }
+
+        endScope();
+        currentClass = enclosingClass;
+
+        return null;
+    }
+
+    @Override
+    public Void visitGet(Get expr) {
+        resolve(expr.object);
+        return null;
+    }
+
+    @Override
+    public Void visitSet(Set expr) {
+        resolve(expr.value);
+        resolve(expr.object);
+        return null;
+    }
+
+    @Override
+    public Void visitThis(This expr) {
+        if (currentClass == ClassType.NONE) {
+            Minhpp.error(expr.keyword, "Can't use 'this' outside a class.");
+            return null;
+        }
+
+        resolveLocal(expr, expr.keyword, true);
+        return null;
+    }
+
     private void resolve(Stmt stmt) {
         stmt.accept(this);
     }
@@ -252,7 +317,7 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
         if (scope.containsKey(name.lexeme)) {
             Minhpp.error(name, "A variable with this name already exists in this scope.");
         }
-        scope.put(name.lexeme, new LocalVariable(name));
+        scope.put(name.lexeme, new LocalVariable(name, VarState.UNUSED));
     }
 
     private void resolveLocal(Expr expr, Token name, boolean isUsed) {

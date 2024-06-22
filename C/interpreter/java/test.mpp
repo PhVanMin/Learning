@@ -1,9 +1,4 @@
-fun () {
-    while (count < 2) {
-        for (var i = 0; i < 5; i = i + 1) {
-            if (i == 2) continue;
-            print i;
-        }
-        count = count + 1;
-    }
-}();
+class A {
+    a() {}
+}
+print A().a;

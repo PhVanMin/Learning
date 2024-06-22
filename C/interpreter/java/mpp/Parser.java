@@ -4,9 +4,11 @@ import static mpp.TokenType.AND;
 import static mpp.TokenType.BANG;
 import static mpp.TokenType.BANG_EQUAL;
 import static mpp.TokenType.BREAK;
+import static mpp.TokenType.CLASS;
 import static mpp.TokenType.COLON;
 import static mpp.TokenType.COMMA;
 import static mpp.TokenType.CONTINUE;
+import static mpp.TokenType.DOT;
 import static mpp.TokenType.ELSE;
 import static mpp.TokenType.EOF;
 import static mpp.TokenType.EQUAL;
@@ -36,6 +38,7 @@ import static mpp.TokenType.RIGHT_PAREN;
 import static mpp.TokenType.SEMICOLON;
 import static mpp.TokenType.SLASH;
 import static mpp.TokenType.STAR;
+import static mpp.TokenType.THIS;
 import static mpp.TokenType.TRUE;
 import static mpp.TokenType.VAR;
 import static mpp.TokenType.WHILE;
@@ -70,6 +73,10 @@ public class Parser {
             if (match(VAR))
                 return varDeclaration();
 
+            if (match(CLASS)) {
+                return classDeclaration();
+            }
+
             if (match(FUN))
                 return function("function");
 
@@ -80,8 +87,21 @@ public class Parser {
         }
     }
 
+    private Stmt classDeclaration() {
+        Token name = consume(IDENTIFIER, "Expect class name.");
+        consume(LEFT_BRACE, "Expect '{' before class body.");
+
+        List<Stmt.Function> methods = new ArrayList<>();
+        while (!check(RIGHT_BRACE) && !isAtEnd()) {
+            methods.add(function("method"));
+        }
+
+        consume(RIGHT_BRACE, "Expect '}' after class body");
+        return new Stmt.Class(name, methods);
+    }
+
     private Stmt.Function function(String type) {
-        Token name = null;
+        Token name = new Token(IDENTIFIER, "lambda", null, peek(0).line);
 
         if (check(IDENTIFIER) || !type.equals("lambda"))
             name = consume(IDENTIFIER, "Expect " + type + " name.");
@@ -276,6 +296,9 @@ public class Parser {
             if (expr instanceof Expr.Variable) {
                 Token name = ((Expr.Variable) expr).name;
                 return new Expr.Assign(name, value);
+            } else if (expr instanceof Expr.Get) {
+                Expr.Get get = (Expr.Get) expr;
+                return new Expr.Set(get.object, get.name, value);
             }
 
             throw error(equals, "Invalid assignment value.");
@@ -381,27 +404,42 @@ public class Parser {
     private Expr call() {
         Expr calleeExpr = primary();
 
-        if (match(LEFT_PAREN)) {
-            Token paren = peek(-1);
-            List<Expr> arguments = new ArrayList<>();
-
-            if (!check(RIGHT_PAREN)) {
-                do {
-                    if (arguments.size() == 255) {
-                        error(peek(0), "Can't have more than 255 arguments.");
-                    }
-                    arguments.add(assignment());
-                } while (match(COMMA));
+        while (true) {
+            if (match(LEFT_PAREN)) {
+                calleeExpr = finishCall(calleeExpr);
+            } else if (match(DOT)) {
+                Token name = consume(IDENTIFIER, "Expect property name after '.'.");
+                calleeExpr = new Expr.Get(calleeExpr, name);
+            } else {
+                break;
             }
-
-            consume(RIGHT_PAREN, "Expected ';' after arguments.");
-            return new Expr.Call(calleeExpr, paren, arguments);
         }
 
         return calleeExpr;
     }
 
+    private Expr finishCall(Expr calleeExpr) {
+        Token paren = peek(-1);
+        List<Expr> arguments = new ArrayList<>();
+
+        if (!check(RIGHT_PAREN)) {
+            do {
+                if (arguments.size() == 255) {
+                    error(peek(0), "Can't have more than 255 arguments.");
+                }
+                arguments.add(assignment());
+            } while (match(COMMA));
+        }
+
+        consume(RIGHT_PAREN, "Expected ';' after arguments.");
+        return new Expr.Call(calleeExpr, paren, arguments);
+    }
+
     private Expr primary() {
+        if (match(THIS)) {
+            return new Expr.This(peek(-1));
+        }
+
         if (match(TRUE))
             return new Expr.Literal(true);
 

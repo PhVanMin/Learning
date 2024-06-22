@@ -10,6 +10,9 @@ public abstract class Expr {
         T visitLogical(Logical expr);
         T visitLambda(Lambda expr);
         T visitGrouping(Grouping expr);
+        T visitGet(Get expr);
+        T visitSet(Set expr);
+        T visitThis(This expr);
         T visitLiteral(Literal expr);
         T visitCall(Call expr);
         T visitVariable(Variable expr);
@@ -101,6 +104,48 @@ public abstract class Expr {
         @Override
         <T> T accept(Visitor<T> visitor) {
             return visitor.visitGrouping(this);
+        }
+    }
+
+    public static class Get extends Expr {
+        final Expr object;
+        final Token name;
+        public Get(Expr object, Token name) {
+            this.object = object;
+            this.name = name;
+        }
+
+        @Override
+        <T> T accept(Visitor<T> visitor) {
+            return visitor.visitGet(this);
+        }
+    }
+
+    public static class Set extends Expr {
+        final Expr object;
+        final Token name;
+        final Expr value;
+        public Set(Expr object, Token name, Expr value) {
+            this.object = object;
+            this.name = name;
+            this.value = value;
+        }
+
+        @Override
+        <T> T accept(Visitor<T> visitor) {
+            return visitor.visitSet(this);
+        }
+    }
+
+    public static class This extends Expr {
+        final Token keyword;
+        public This(Token keyword) {
+            this.keyword = keyword;
+        }
+
+        @Override
+        <T> T accept(Visitor<T> visitor) {
+            return visitor.visitThis(this);
         }
     }
 
