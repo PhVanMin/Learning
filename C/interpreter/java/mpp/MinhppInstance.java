@@ -4,11 +4,17 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class MinhppInstance {
-    private Map<String, Object> fields = new HashMap<>();
+    private Map<String, Object> fields;
     private MinhppClass mClass;
 
     MinhppInstance(MinhppClass mClass) {
         this.mClass = mClass;
+        this.fields = new HashMap<>();
+    }
+
+    MinhppInstance(MinhppClass mClass, Map<String, Object> fields) {
+        this.mClass = mClass;
+        this.fields = fields;
     }
 
     public void set(Token name, Object value) {
@@ -19,9 +25,11 @@ public class MinhppInstance {
         if (fields.containsKey(name.lexeme))
             return fields.get(name.lexeme);
 
-        MinhppFunction method = mClass.findMethod(name.lexeme);
-        if (method != null)
-            return method.bind(this);
+        if (mClass != null) {
+            MinhppFunction method = mClass.findMethod(name.lexeme);
+            if (method != null)
+                return method.bind(this);
+        }
 
         throw new RuntimeError(name, "Undefined property " + name.lexeme + ".");
     }

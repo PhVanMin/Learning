@@ -1,6 +1,7 @@
 package mpp;
 
 import static mpp.TokenType.OR;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -26,8 +27,10 @@ import mpp.Stmt.If;
 public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
     final class Break extends RuntimeException {
     }
+
     final class Continue extends RuntimeException {
     }
+
     final Environment globals = new Environment();
     private Environment environment = globals;
 
@@ -336,12 +339,19 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
         environment.define(stmt.name.lexeme, null);
 
         Map<String, MinhppFunction> methods = new HashMap<>();
+        Map<String, Object> statics = new HashMap<>();
         for (Stmt.Function method : stmt.methods) {
-            MinhppFunction function = new MinhppFunction(method, environment, method.name.lexeme.equals(stmt.name.lexeme));
-            methods.put(method.name.lexeme, function);
+            MinhppFunction function = new MinhppFunction(method,
+                    environment,
+                    method.name.lexeme.equals(stmt.name.lexeme));
+            if (method.type == FunctionType.STATIC) {
+                statics.put(method.name.lexeme, function);
+            } else {
+                methods.put(method.name.lexeme, function);
+            }
         }
 
-        MinhppClass mClass = new MinhppClass(stmt.name.lexeme, methods);
+        MinhppClass mClass = new MinhppClass(stmt.name.lexeme, methods, statics);
         environment.assign(stmt.name, mClass);
         return null;
     }
@@ -371,9 +381,9 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
     }
 
     @Override
-	public Object visitThis(This expr) {
+    public Object visitThis(This expr) {
         return lookUpVariable(expr.keyword, expr);
-	}
+    }
 
     private Object lookUpVariable(Token name, Expr expr) {
         Integer distance = locals.get(expr);
@@ -423,7 +433,7 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
         return a.equals(b);
     }
 
-	private boolean isTruthy(Object obj) {
+    private boolean isTruthy(Object obj) {
         if (obj instanceof Boolean)
             return (boolean) obj;
 

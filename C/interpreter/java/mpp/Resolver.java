@@ -1,7 +1,6 @@
 package mpp;
 
 import static mpp.TokenType.THIS;
-
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -33,10 +32,6 @@ import mpp.Stmt.Return;
 import mpp.Stmt.Var;
 
 class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
-    private enum FunctionType {
-        NONE, FUNCTION, METHOD, INITIALIZER
-    }
-
     private enum VarState {
         USED, UNUSED
     }
@@ -143,7 +138,7 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
         }
 
         if (stmt.value != null) {
-            if (currentFunction == FunctionType.INITIALIZER)
+            if (currentFunction == FunctionType.INIT)
                 Minhpp.error(stmt.name, "Can't return a value from an initializer.");
             resolve(stmt.value);
         }
@@ -253,9 +248,9 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
                         VarState.USED));
 
         for (Stmt.Function method : stmt.methods) {
-            FunctionType declaration = FunctionType.METHOD;
+            FunctionType declaration = method.type;
             if (method.name.lexeme.equals(stmt.name.lexeme))
-                declaration = FunctionType.INITIALIZER;
+                declaration = FunctionType.INIT;
             resolveFunction(method, declaration);
         }
 
@@ -347,5 +342,4 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
         endScope();
         currentFunction = enclosingFunction;
     }
-
 }

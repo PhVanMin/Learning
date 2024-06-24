@@ -1,4 +1,7 @@
 class A {
-    a() {}
+    static a(static) { print static; }
+    b(num) {print num +1;}
 }
-print A().a;
+
+var static = 1;
+A.a(static);

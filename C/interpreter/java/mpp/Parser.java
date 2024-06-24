@@ -1,48 +1,6 @@
 package mpp;
 
-import static mpp.TokenType.AND;
-import static mpp.TokenType.BANG;
-import static mpp.TokenType.BANG_EQUAL;
-import static mpp.TokenType.BREAK;
-import static mpp.TokenType.CLASS;
-import static mpp.TokenType.COLON;
-import static mpp.TokenType.COMMA;
-import static mpp.TokenType.CONTINUE;
-import static mpp.TokenType.DOT;
-import static mpp.TokenType.ELSE;
-import static mpp.TokenType.EOF;
-import static mpp.TokenType.EQUAL;
-import static mpp.TokenType.EQUAL_EQUAL;
-import static mpp.TokenType.FALSE;
-import static mpp.TokenType.FOR;
-import static mpp.TokenType.FUN;
-import static mpp.TokenType.GREATER;
-import static mpp.TokenType.GREATER_EQUAL;
-import static mpp.TokenType.IDENTIFIER;
-import static mpp.TokenType.IF;
-import static mpp.TokenType.LEFT_BRACE;
-import static mpp.TokenType.LEFT_PAREN;
-import static mpp.TokenType.LESS;
-import static mpp.TokenType.LESS_EQUAL;
-import static mpp.TokenType.MINUS;
-import static mpp.TokenType.NIL;
-import static mpp.TokenType.NUMBER;
-import static mpp.TokenType.OR;
-import static mpp.TokenType.PERCEN;
-import static mpp.TokenType.PLUS;
-import static mpp.TokenType.PRINT;
-import static mpp.TokenType.QUESTION;
-import static mpp.TokenType.RETURN;
-import static mpp.TokenType.RIGHT_BRACE;
-import static mpp.TokenType.RIGHT_PAREN;
-import static mpp.TokenType.SEMICOLON;
-import static mpp.TokenType.SLASH;
-import static mpp.TokenType.STAR;
-import static mpp.TokenType.THIS;
-import static mpp.TokenType.TRUE;
-import static mpp.TokenType.VAR;
-import static mpp.TokenType.WHILE;
-
+import static mpp.TokenType.*;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -78,7 +36,7 @@ public class Parser {
             }
 
             if (match(FUN))
-                return function("function");
+                return function(FunctionType.FUNCTION);
 
             return statement();
         } catch (ParseError error) {
@@ -93,17 +51,21 @@ public class Parser {
 
         List<Stmt.Function> methods = new ArrayList<>();
         while (!check(RIGHT_BRACE) && !isAtEnd()) {
-            methods.add(function("method"));
+            if (peek(0).lexeme.equals("static")) {
+                advance();
+                methods.add(function(FunctionType.STATIC));
+            } else
+                methods.add(function(FunctionType.METHOD));
         }
 
         consume(RIGHT_BRACE, "Expect '}' after class body");
         return new Stmt.Class(name, methods);
     }
 
-    private Stmt.Function function(String type) {
-        Token name = new Token(IDENTIFIER, "lambda", null, peek(0).line);
+    private Stmt.Function function(FunctionType type) {
+        Token name = null;
 
-        if (check(IDENTIFIER) || !type.equals("lambda"))
+        if (check(IDENTIFIER) || !(type == FunctionType.LAMBDA))
             name = consume(IDENTIFIER, "Expect " + type + " name.");
 
         consume(LEFT_PAREN, "Expect '(' after " + type + " name.");
@@ -117,10 +79,10 @@ public class Parser {
             } while (match(COMMA));
         }
         consume(RIGHT_PAREN, "Expect ')' after parameters.");
-
         consume(LEFT_BRACE, "Expect '{' before " + type + " body.");
+
         List<Stmt> body = block();
-        return new Stmt.Function(name, parameters, body);
+        return new Stmt.Function(type, name, parameters, body);
     }
 
     private Stmt.Var varDeclaration() {
@@ -453,7 +415,7 @@ public class Parser {
             return new Expr.Literal(peek(-1).literal);
 
         if (match(FUN)) {
-            return new Expr.Lambda(function("lambda"));
+            return new Expr.Lambda(function(FunctionType.LAMBDA));
         }
 
         if (match(IDENTIFIER))

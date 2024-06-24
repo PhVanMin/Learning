@@ -6,11 +6,12 @@ import java.util.Map;
 /**
  * MinhppClass
  */
-class MinhppClass implements MinhppCallable {
+class MinhppClass extends MinhppInstance implements MinhppCallable {
     final String name;
     private final Map<String, MinhppFunction> methods;
 
-    MinhppClass(String name, Map<String, MinhppFunction> methods) {
+    MinhppClass(String name, Map<String, MinhppFunction> methods, Map<String, Object> statics) {
+        super(null, statics);
         this.name = name;
         this.methods = methods;
     }
