@@ -69,7 +69,7 @@ public class Parser {
         if (check(IDENTIFIER) || !type.equals("lambda"))
             name = consume(IDENTIFIER, "Expect " + type + " name.");
 
-        if (type.equals("method") && check(LEFT_PAREN)) {
+        if (!type.equals("method") || check(LEFT_PAREN)) {
             parameters = new ArrayList<>();
             consume(LEFT_PAREN, "Expect '(' after " + type + " name.");
             if (!check(RIGHT_PAREN)) {
