@@ -337,21 +337,22 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
     @Override
     public Void visitClass(Class stmt) {
         environment.define(stmt.name.lexeme, null);
-
-        Map<String, MinhppFunction> methods = new HashMap<>();
-        Map<String, Object> statics = new HashMap<>();
-        for (Stmt.Function method : stmt.methods) {
-            MinhppFunction function = new MinhppFunction(method,
-                    environment,
-                    method.name.lexeme.equals(stmt.name.lexeme));
-            if (method.type == FunctionType.STATIC) {
-                statics.put(method.name.lexeme, function);
-            } else {
-                methods.put(method.name.lexeme, function);
-            }
+        Map<String, MinhppFunction> statics = new HashMap<>();
+        for (Stmt.Function method : stmt.statics) {
+            MinhppFunction function = new MinhppFunction(method, environment,
+                    false);
+            statics.put(method.name.lexeme, function);
         }
 
-        MinhppClass mClass = new MinhppClass(stmt.name.lexeme, methods, statics);
+        Map<String, MinhppFunction> methods = new HashMap<>();
+        for (Stmt.Function method : stmt.methods) {
+            MinhppFunction function = new MinhppFunction(method, environment,
+                    method.name.lexeme.equals(stmt.name.lexeme));
+            methods.put(method.name.lexeme, function);
+        }
+
+        MinhppClass metaclass = new MinhppClass(null, "Metaclass " + stmt.name.lexeme, statics);
+        MinhppClass mClass = new MinhppClass(metaclass, stmt.name.lexeme, methods);
         environment.assign(stmt.name, mClass);
         return null;
     }
@@ -361,7 +362,12 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
         Object object = evaluate(expr.object);
 
         if (object instanceof MinhppInstance) {
-            return ((MinhppInstance) object).get(expr.name);
+            Object result = ((MinhppInstance) object).get(expr.name);
+            if (result instanceof MinhppFunction && ((MinhppFunction) result).arity() == -1) {
+                return ((MinhppFunction) result).call(this, null);
+            } else {
+                return result;
+            }
         }
 
         throw new RuntimeError(expr.name, "Only instances have property.");

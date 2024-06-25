@@ -3,17 +3,20 @@ package mpp;
 import java.util.List;
 import java.util.Map;
 
-/**
- * MinhppClass
- */
 class MinhppClass extends MinhppInstance implements MinhppCallable {
     final String name;
     private final Map<String, MinhppFunction> methods;
 
-    MinhppClass(String name, Map<String, MinhppFunction> methods, Map<String, Object> statics) {
-        super(null, statics);
+    MinhppClass(MinhppClass metaclass, String name,
+            Map<String, MinhppFunction> methods) {
+        super(metaclass);
         this.name = name;
         this.methods = methods;
+    }
+
+    @Override
+    public void set(Token name, Object value) {
+        throw new RuntimeError(name, "Can't assign class property.");
     }
 
     public MinhppFunction findMethod(String name) {
@@ -30,8 +33,9 @@ class MinhppClass extends MinhppInstance implements MinhppCallable {
 
     @Override
     public int arity() {
-        MinhppFunction initializer = findMethod(name); 
-        if (initializer != null) return initializer.arity();
+        MinhppFunction initializer = findMethod(name);
+        if (initializer != null)
+            return initializer.arity();
         return 0;
     }
 
@@ -39,7 +43,7 @@ class MinhppClass extends MinhppInstance implements MinhppCallable {
     public Object call(Interpreter interpreter, List<Object> args) {
         MinhppInstance instance = new MinhppInstance(this);
 
-        MinhppFunction initializer = findMethod(name); 
+        MinhppFunction initializer = findMethod(name);
         if (initializer != null)
             initializer.bind(instance).call(interpreter, args);
 

@@ -36,7 +36,7 @@ public class Parser {
             }
 
             if (match(FUN))
-                return function(FunctionType.FUNCTION);
+                return function("function");
 
             return statement();
         } catch (ParseError error) {
@@ -50,39 +50,42 @@ public class Parser {
         consume(LEFT_BRACE, "Expect '{' before class body.");
 
         List<Stmt.Function> methods = new ArrayList<>();
+        List<Stmt.Function> statics = new ArrayList<>();
         while (!check(RIGHT_BRACE) && !isAtEnd()) {
-            if (peek(0).lexeme.equals("static")) {
-                advance();
-                methods.add(function(FunctionType.STATIC));
-            } else
-                methods.add(function(FunctionType.METHOD));
+            if (match(STATIC))
+                statics.add(function("method"));
+            else
+                methods.add(function("method"));
         }
 
         consume(RIGHT_BRACE, "Expect '}' after class body");
-        return new Stmt.Class(name, methods);
+        return new Stmt.Class(name, methods, statics);
     }
 
-    private Stmt.Function function(FunctionType type) {
+    private Stmt.Function function(String type) {
         Token name = null;
+        List<Token> parameters = null;
 
-        if (check(IDENTIFIER) || !(type == FunctionType.LAMBDA))
+        if (check(IDENTIFIER) || !type.equals("lambda"))
             name = consume(IDENTIFIER, "Expect " + type + " name.");
 
-        consume(LEFT_PAREN, "Expect '(' after " + type + " name.");
-        List<Token> parameters = new ArrayList<>();
-        if (!check(RIGHT_PAREN)) {
-            do {
-                if (parameters.size() == 255)
-                    error(peek(0), "Can't have more than 255 parameters.");
+        if (type.equals("method") && check(LEFT_PAREN)) {
+            parameters = new ArrayList<>();
+            consume(LEFT_PAREN, "Expect '(' after " + type + " name.");
+            if (!check(RIGHT_PAREN)) {
+                do {
+                    if (parameters.size() == 255)
+                        error(peek(0), "Can't have more than 255 parameters.");
 
-                parameters.add(consume(IDENTIFIER, "Expect parameter name."));
-            } while (match(COMMA));
+                    parameters.add(consume(IDENTIFIER, "Expect parameter name."));
+                } while (match(COMMA));
+            }
+            consume(RIGHT_PAREN, "Expect ')' after parameters.");
         }
-        consume(RIGHT_PAREN, "Expect ')' after parameters.");
-        consume(LEFT_BRACE, "Expect '{' before " + type + " body.");
 
+        consume(LEFT_BRACE, "Expect '{' before " + type + " body.");
         List<Stmt> body = block();
-        return new Stmt.Function(type, name, parameters, body);
+        return new Stmt.Function(name, parameters, body);
     }
 
     private Stmt.Var varDeclaration() {
@@ -415,7 +418,7 @@ public class Parser {
             return new Expr.Literal(peek(-1).literal);
 
         if (match(FUN)) {
-            return new Expr.Lambda(function(FunctionType.LAMBDA));
+            return new Expr.Lambda(function("lambda"));
         }
 
         if (match(IDENTIFIER))

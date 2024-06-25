@@ -32,13 +32,13 @@ public class GenerateAst {
                 "Block : List<Stmt> statements",
                 "Loop : Expr condition, Stmt whileStmt, Stmt increment",
                 "If : Expr condition, Stmt trueStmt, Stmt falseStmt",
-                "Class : Token name, List<Stmt.Function> methods",
+                "Class : Token name, List<Stmt.Function> methods, List<Stmt.Function> statics",
                 "Var : Token name, Expr initializer",
                 "Expression : Expr expression",
                 "Break : Token name",
                 "Continue : Token name",
                 "Return : Token name, Expr value",
-                "Function : FunctionType type, Token name, List<Token> params, List<Stmt> body",
+                "Function : Token name, List<Token> params, List<Stmt> body",
                 "Print : Expr expression"));
     }
 

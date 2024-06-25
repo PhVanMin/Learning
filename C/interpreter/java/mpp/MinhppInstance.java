@@ -12,24 +12,25 @@ public class MinhppInstance {
         this.fields = new HashMap<>();
     }
 
-    MinhppInstance(MinhppClass mClass, Map<String, Object> fields) {
-        this.mClass = mClass;
-        this.fields = fields;
+    public void set(Token name, Object value) {
+        MinhppFunction method = mClass.findMethod(name.lexeme);
+        if (method == null)
+            fields.put(name.lexeme, value);
+
+        throw new RuntimeError(name, "Can't assign class method.");
     }
 
-    public void set(Token name, Object value) {
-        fields.put(name.lexeme, value);
+    public String getName() {
+        return mClass.name;
     }
 
     public Object get(Token name) {
+        MinhppFunction method = mClass.findMethod(name.lexeme);
+        if (method != null)
+            return method.bind(this);
+
         if (fields.containsKey(name.lexeme))
             return fields.get(name.lexeme);
-
-        if (mClass != null) {
-            MinhppFunction method = mClass.findMethod(name.lexeme);
-            if (method != null)
-                return method.bind(this);
-        }
 
         throw new RuntimeError(name, "Undefined property " + name.lexeme + ".");
     }

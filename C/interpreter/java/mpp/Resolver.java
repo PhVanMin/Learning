@@ -40,6 +40,10 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
         NONE, CLASS
     }
 
+    private enum FunctionType {
+        FUNCTION, GETTER, METHOD, INIT, NONE
+    }
+
     private class LocalVariable {
         VarState state;
         Token name;
@@ -247,11 +251,17 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
                         new Token(THIS, "this", null, 0),
                         VarState.USED));
 
+        for (Stmt.Function method : stmt.statics) {
+            resolveFunction(method, FunctionType.METHOD);
+        }
+
         for (Stmt.Function method : stmt.methods) {
-            FunctionType declaration = method.type;
             if (method.name.lexeme.equals(stmt.name.lexeme))
-                declaration = FunctionType.INIT;
-            resolveFunction(method, declaration);
+                resolveFunction(method, FunctionType.INIT);
+            else if (method.params == null)
+                resolveFunction(method, FunctionType.GETTER);
+            else
+                resolveFunction(method, FunctionType.METHOD);
         }
 
         endScope();
@@ -333,9 +343,11 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
         currentFunction = type;
         startScope();
 
-        for (Token param : function.params) {
-            declare(param);
-            // define(param);
+        if (type != FunctionType.GETTER) {
+            for (Token param : function.params) {
+                declare(param);
+                // define(param);
+            }
         }
 
         resolve(function.body);
