@@ -9,6 +9,7 @@ public abstract class Expr {
         T visitTernary(Ternary expr);
         T visitLogical(Logical expr);
         T visitLambda(Lambda expr);
+        T visitSuper(Super expr);
         T visitGrouping(Grouping expr);
         T visitGet(Get expr);
         T visitSet(Set expr);
@@ -92,6 +93,20 @@ public abstract class Expr {
         @Override
         <T> T accept(Visitor<T> visitor) {
             return visitor.visitLambda(this);
+        }
+    }
+
+    public static class Super extends Expr {
+        final Token keyword;
+        final Token method;
+        public Super(Token keyword, Token method) {
+            this.keyword = keyword;
+            this.method = method;
+        }
+
+        @Override
+        <T> T accept(Visitor<T> visitor) {
+            return visitor.visitSuper(this);
         }
     }
 

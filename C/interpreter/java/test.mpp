@@ -1,7 +1,14 @@
 class A {
-    b { return 1 + this.num; }
+    static b { return 1; }
     num { return 2; }
 }
 
-var c = A();
-print c.b;
+class B < A {
+    static b {
+        return super.b + 2;
+    }
+
+    num { return 3; }
+}
+
+print B.b + A.b;

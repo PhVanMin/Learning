@@ -5,12 +5,14 @@ import java.util.Map;
 
 class MinhppClass extends MinhppInstance implements MinhppCallable {
     final String name;
+    final MinhppClass superclass;
     private final Map<String, MinhppFunction> methods;
 
-    MinhppClass(MinhppClass metaclass, String name,
+    MinhppClass(MinhppClass metaclass, MinhppClass superclass, String name,
             Map<String, MinhppFunction> methods) {
         super(metaclass);
         this.name = name;
+        this.superclass = superclass;
         this.methods = methods;
     }
 
@@ -22,6 +24,9 @@ class MinhppClass extends MinhppInstance implements MinhppCallable {
     public MinhppFunction findMethod(String name) {
         if (methods.containsKey(name))
             return methods.get(name);
+
+        if (superclass != null)
+            return superclass.findMethod(name);
 
         return null;
     }

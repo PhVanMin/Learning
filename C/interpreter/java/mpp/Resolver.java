@@ -1,5 +1,6 @@
 package mpp;
 
+import static mpp.TokenType.SUPER;
 import static mpp.TokenType.THIS;
 import java.util.HashMap;
 import java.util.List;
@@ -15,6 +16,7 @@ import mpp.Expr.Lambda;
 import mpp.Expr.Literal;
 import mpp.Expr.Logical;
 import mpp.Expr.Set;
+import mpp.Expr.Super;
 import mpp.Expr.Ternary;
 import mpp.Expr.This;
 import mpp.Expr.Unary;
@@ -37,7 +39,7 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
     }
 
     private enum ClassType {
-        NONE, CLASS
+        NONE, CLASS, SUBCLASS
     }
 
     private enum FunctionType {
@@ -245,6 +247,20 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
 
         declare(stmt.name);
 
+        if (stmt.superclass != null) {
+            if (stmt.superclass.name.lexeme.equals(stmt.name.lexeme))
+                Minhpp.error(stmt.superclass.name, "A class can't inherit from itself.");
+            else {
+                currentClass = ClassType.SUBCLASS;
+                resolve(stmt.superclass);
+                startScope();
+                scopes.peek().put("super",
+                        new LocalVariable(
+                                new Token(SUPER, "super", null, 0),
+                                VarState.USED));
+            }
+        }
+
         startScope();
         scopes.peek().put("this",
                 new LocalVariable(
@@ -252,7 +268,10 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
                         VarState.USED));
 
         for (Stmt.Function method : stmt.statics) {
-            resolveFunction(method, FunctionType.METHOD);
+            if (method.params == null)
+                resolveFunction(method, FunctionType.GETTER);
+            else
+                resolveFunction(method, FunctionType.METHOD);
         }
 
         for (Stmt.Function method : stmt.methods) {
@@ -265,6 +284,11 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
         }
 
         endScope();
+
+        if (stmt.superclass != null) {
+            endScope();
+        }
+
         currentClass = enclosingClass;
 
         return null;
@@ -307,6 +331,8 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
     }
 
     private void endScope() {
+        if (scopes.isEmpty())
+            return;
         Map<String, LocalVariable> scope = scopes.pop();
         for (LocalVariable variable : scope.values()) {
             if (variable.state == VarState.UNUSED)
@@ -353,5 +379,19 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
         resolve(function.body);
         endScope();
         currentFunction = enclosingFunction;
+    }
+
+    @Override
+    public Void visitSuper(Super expr) {
+        if (currentClass == ClassType.NONE) {
+            Minhpp.error(expr.keyword,
+                    "Can't use 'super' outside of a class.");
+        } else if (currentClass != ClassType.SUBCLASS) {
+            Minhpp.error(expr.keyword,
+                    "Can't use 'super' in a class with no superclass.");
+        }
+
+        resolveLocal(expr, expr.keyword, true);
+        return null;
     }
 }

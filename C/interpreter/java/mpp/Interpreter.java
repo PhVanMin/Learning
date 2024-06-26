@@ -16,6 +16,7 @@ import mpp.Expr.Lambda;
 import mpp.Expr.Literal;
 import mpp.Expr.Logical;
 import mpp.Expr.Set;
+import mpp.Expr.Super;
 import mpp.Expr.Ternary;
 import mpp.Expr.This;
 import mpp.Expr.Unary;
@@ -336,23 +337,62 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
 
     @Override
     public Void visitClass(Class stmt) {
-        environment.define(stmt.name.lexeme, null);
+        Object superclass = null;
+        if (stmt.superclass != null) {
+            superclass = evaluate(stmt.superclass);
+            if (!(superclass instanceof MinhppClass))
+                throw new RuntimeError(stmt.superclass.name, "Superclass must be a class.");
+        }
+
         Map<String, MinhppFunction> statics = new HashMap<>();
+        Map<String, MinhppFunction> methods = new HashMap<>();
+        MinhppClass mClass;
+
+        environment.define(stmt.name.lexeme, null);
+        // define super for static methods
+        if (superclass != null) {
+            environment = new Environment(environment);
+            environment.define("super", ((MinhppClass) superclass).mClass);
+        }
+
         for (Stmt.Function method : stmt.statics) {
             MinhppFunction function = new MinhppFunction(method, environment,
                     false);
             statics.put(method.name.lexeme, function);
         }
 
-        Map<String, MinhppFunction> methods = new HashMap<>();
+        if (superclass != null) {
+            environment = environment.enclosing;
+        }
+        // end define for static methods
+
+        // define super for class methods
+        if (superclass != null) {
+            environment = new Environment(environment);
+            environment.define("super", superclass);
+        }
+
         for (Stmt.Function method : stmt.methods) {
             MinhppFunction function = new MinhppFunction(method, environment,
                     method.name.lexeme.equals(stmt.name.lexeme));
             methods.put(method.name.lexeme, function);
         }
 
-        MinhppClass metaclass = new MinhppClass(null, "Metaclass " + stmt.name.lexeme, statics);
-        MinhppClass mClass = new MinhppClass(metaclass, stmt.name.lexeme, methods);
+        if (superclass != null) {
+            environment = environment.enclosing;
+        }
+        // end define for class methods
+
+        if (superclass == null) {
+            MinhppClass metaclass = new MinhppClass(null, null, "Meta " + stmt.name.lexeme, statics);
+            mClass = new MinhppClass(metaclass, null, stmt.name.lexeme, methods);
+        } else {
+            MinhppClass metaclass = new MinhppClass(null,
+                    ((MinhppClass) superclass).mClass,
+                    "Meta " + stmt.name.lexeme, statics);
+            mClass = new MinhppClass(metaclass, (MinhppClass) superclass, stmt.name.lexeme, methods);
+        }
+
         environment.assign(stmt.name, mClass);
         return null;
     }
@@ -361,16 +401,15 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
     public Object visitGet(Get expr) {
         Object object = evaluate(expr.object);
 
-        if (object instanceof MinhppInstance) {
-            Object result = ((MinhppInstance) object).get(expr.name);
-            if (result instanceof MinhppFunction && ((MinhppFunction) result).arity() == -1) {
-                return ((MinhppFunction) result).call(this, null);
-            } else {
-                return result;
-            }
+        if (!(object instanceof MinhppInstance)) {
+            throw new RuntimeError(expr.name, "Only instances have property.");
         }
 
-        throw new RuntimeError(expr.name, "Only instances have property.");
+        Object result = ((MinhppInstance) object).get(expr.name);
+        if (result instanceof MinhppFunction && ((MinhppFunction) result).arity() == -1)
+            return ((MinhppFunction) result).call(this, null);
+
+        return result;
     }
 
     @Override
@@ -447,5 +486,20 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
             return true;
 
         return false;
+    }
+
+    @Override
+    public Object visitSuper(Super expr) {
+        int distance = locals.get(expr);
+        MinhppClass superclass = (MinhppClass) environment.getAt(distance, "super");
+        MinhppFunction method = superclass.findMethod(expr.method.lexeme);
+        if (method == null)
+            throw new RuntimeError(expr.method, "Undefined property '" + expr.method.lexeme + "'.");
+
+        MinhppInstance currentInstance = (MinhppInstance) environment.getAt(distance - 1, "this");
+        if (method.arity() == -1)
+            return method.bind(currentInstance).call(this, null);
+
+        return method.bind(currentInstance);
     }
 }
