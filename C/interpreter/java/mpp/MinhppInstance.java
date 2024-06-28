@@ -4,7 +4,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class MinhppInstance {
-    private Map<String, Object> fields;
+    protected Map<String, Object> fields;
     final MinhppClass mClass;
 
     MinhppInstance(MinhppClass mClass) {
@@ -24,9 +24,10 @@ public class MinhppInstance {
         if (fields.containsKey(name.lexeme))
             return fields.get(name.lexeme);
 
-        MinhppFunction method = mClass.findMethod(name.lexeme);
+        if (mClass != null)
+        { MinhppFunction method = mClass.findMethod(name.lexeme);
         if (method != null)
-            return method.bind(this);
+            return method.bind(this); }
 
         throw new RuntimeError(name, "Undefined property " + name.lexeme + ".");
     }

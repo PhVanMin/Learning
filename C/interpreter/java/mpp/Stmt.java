@@ -14,7 +14,6 @@ public abstract class Stmt {
         T visitContinue(Continue stmt);
         T visitReturn(Return stmt);
         T visitFunction(Function stmt);
-        T visitPrint(Print stmt);
     }
 
     abstract <T> T accept(Visitor<T> visitor);
@@ -158,18 +157,6 @@ public abstract class Stmt {
         @Override
         <T> T accept(Visitor<T> visitor) {
             return visitor.visitFunction(this);
-        }
-    }
-
-    public static class Print extends Stmt {
-        final Expr expression;
-        public Print(Expr expression) {
-            this.expression = expression;
-        }
-
-        @Override
-        <T> T accept(Visitor<T> visitor) {
-            return visitor.visitPrint(this);
         }
     }
 

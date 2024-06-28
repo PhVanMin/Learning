@@ -15,6 +15,7 @@ import mpp.Expr.Grouping;
 import mpp.Expr.Lambda;
 import mpp.Expr.Literal;
 import mpp.Expr.Logical;
+import mpp.Expr.MList;
 import mpp.Expr.Set;
 import mpp.Expr.Super;
 import mpp.Expr.Ternary;
@@ -29,7 +30,6 @@ import mpp.Stmt.Expression;
 import mpp.Stmt.Function;
 import mpp.Stmt.If;
 import mpp.Stmt.Loop;
-import mpp.Stmt.Print;
 import mpp.Stmt.Return;
 import mpp.Stmt.Var;
 
@@ -157,12 +157,6 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
         // define(stmt.name);
 
         resolveFunction(stmt, FunctionType.FUNCTION);
-        return null;
-    }
-
-    @Override
-    public Void visitPrint(Print stmt) {
-        resolve(stmt.expression);
         return null;
     }
 
@@ -392,6 +386,15 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
         }
 
         resolveLocal(expr, expr.keyword, true);
+        return null;
+    }
+
+    @Override
+    public Void visitMList(MList expr) {
+        for (Expr init : expr.init) {
+            resolve(init);
+        }
+
         return null;
     }
 }

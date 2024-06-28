@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Scanner;
 
 import mpp.Expr.Assign;
 import mpp.Expr.Binary;
@@ -15,6 +16,7 @@ import mpp.Expr.Grouping;
 import mpp.Expr.Lambda;
 import mpp.Expr.Literal;
 import mpp.Expr.Logical;
+import mpp.Expr.MList;
 import mpp.Expr.Set;
 import mpp.Expr.Super;
 import mpp.Expr.Ternary;
@@ -34,9 +36,7 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
 
     final Environment globals = new Environment();
     private Environment environment = globals;
-
     private boolean cmd;
-
     private final Map<Expr, Integer> locals = new HashMap<>();
 
     public Interpreter() {
@@ -49,6 +49,62 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
             @Override
             public Object call(Interpreter interpreter, List<Object> args) {
                 return (double) System.currentTimeMillis() / 1000.0;
+            }
+
+            @Override
+            public String toString() {
+                return "<native fn>";
+            }
+        });
+
+        globals.define("input", new MinhppCallable() {
+            @Override
+            public int arity() {
+                return 0;
+            }
+
+            @Override
+            public Object call(Interpreter interpreter, List<Object> args) {
+                Scanner sc = new Scanner(System.in);
+                String input = sc.nextLine();
+                sc.close();
+                return input;
+            }
+
+            @Override
+            public String toString() {
+                return "<native fn>";
+            }
+        });
+
+        globals.define("println", new MinhppCallable() {
+            @Override
+            public int arity() {
+                return 1;
+            }
+
+            @Override
+            public Object call(Interpreter interpreter, List<Object> args) {
+                System.out.println(stringify(args.get(0)));
+                return null;
+            }
+
+            @Override
+            public String toString() {
+                return "<native fn>";
+            }
+        });
+
+        globals.define("print", new MinhppCallable() {
+            @Override
+            public int arity() {
+                return 1;
+            }
+
+            @Override
+            public Object call(Interpreter interpreter, List<Object> args) {
+                System.out.print(stringify(args.get(0)));
+                return null;
             }
 
             @Override
@@ -84,7 +140,7 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
                 if (left instanceof Double && right instanceof Double)
                     return (double) left + (double) right;
 
-                if (left instanceof String || left instanceof String)
+                if (left instanceof String || right instanceof String)
                     return stringify(left) + stringify(right);
 
                 throw new RuntimeError(expr.operator, "Operands must be two numbers or two strings.");
@@ -176,13 +232,6 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
         Object value = evaluate(stmt.expression);
         if (cmd)
             System.out.println(stringify(value));
-        return null;
-    }
-
-    @Override
-    public Void visitPrint(Stmt.Print stmt) {
-        Object value = evaluate(stmt.expression);
-        System.out.println(stringify(value));
         return null;
     }
 
@@ -502,4 +551,13 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
 
         return method.bind(currentInstance);
     }
+
+	@Override
+	public Object visitMList(MList expr) {
+        List<Object> items = new ArrayList<>();
+        for (Expr init : expr.init) {
+            items.add(evaluate(init));
+        }
+        return new MinhppList(items);
+	}
 }

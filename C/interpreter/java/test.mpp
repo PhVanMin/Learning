@@ -1,14 +1,2 @@
-class A {
-    static b { return 1; }
-    num { return 2; }
-}
-
-class B < A {
-    static b {
-        return super.b + 2;
-    }
-
-    num { return 3; }
-}
-
-print B.b + A.b;
+var a = [1, 2, 3];
+print(a);

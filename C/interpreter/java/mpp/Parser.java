@@ -122,9 +122,6 @@ public class Parser {
         if (match(WHILE))
             return whileStatement();
 
-        if (match(PRINT))
-            return printStatement();
-
         if (match(FOR))
             return forStatement();
 
@@ -227,12 +224,6 @@ public class Parser {
         consume(RIGHT_BRACE, "Expected '}' after block.");
 
         return statements;
-    }
-
-    private Stmt printStatement() {
-        Expr value = expression();
-        consume(SEMICOLON, "Expect ';' after value.");
-        return new Stmt.Print(value);
     }
 
     private Stmt expressionStatement() {
@@ -407,6 +398,17 @@ public class Parser {
     }
 
     private Expr primary() {
+        if (match(LEFT_BRAC)) {
+            List<Expr> init = new ArrayList<>();
+            if (!check(RIGHT_BRAC)) {
+                do {
+                    init.add(assignment());
+                } while (match(COMMA));
+            }
+            consume(RIGHT_BRAC, "Expect ']' after list initialization.");
+            return new Expr.MList(init);
+        }
+
         if (match(THIS)) {
             return new Expr.This(peek(-1));
         }
@@ -473,7 +475,6 @@ public class Parser {
                 case FOR:
                 case IF:
                 case WHILE:
-                case PRINT:
                 case RETURN:
                     return;
                 default:

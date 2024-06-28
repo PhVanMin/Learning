@@ -5,6 +5,7 @@ import java.util.List;
 public abstract class Expr {
     interface Visitor<T> {
         T visitBinary(Binary expr);
+        T visitMList(MList expr);
         T visitAssign(Assign expr);
         T visitTernary(Ternary expr);
         T visitLogical(Logical expr);
@@ -35,6 +36,18 @@ public abstract class Expr {
         @Override
         <T> T accept(Visitor<T> visitor) {
             return visitor.visitBinary(this);
+        }
+    }
+
+    public static class MList extends Expr {
+        final List<Expr> init;
+        public MList(List<Expr> init) {
+            this.init = init;
+        }
+
+        @Override
+        <T> T accept(Visitor<T> visitor) {
+            return visitor.visitMList(this);
         }
     }
 
