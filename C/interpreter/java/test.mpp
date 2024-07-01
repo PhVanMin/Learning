@@ -1,2 +1,7 @@
-var a = [1, 2, 3];
-print(a);
+class A {}
+
+var a = A();
+a.num = 1;
+
+println(1--);
+println(a.num);

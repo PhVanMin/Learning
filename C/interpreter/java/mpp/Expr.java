@@ -16,6 +16,7 @@ public abstract class Expr {
         T visitSet(Set expr);
         T visitThis(This expr);
         T visitLiteral(Literal expr);
+        T visitPostfix(Postfix expr);
         T visitCall(Call expr);
         T visitVariable(Variable expr);
         T visitUnary(Unary expr);
@@ -186,6 +187,20 @@ public abstract class Expr {
         @Override
         <T> T accept(Visitor<T> visitor) {
             return visitor.visitLiteral(this);
+        }
+    }
+
+    public static class Postfix extends Expr {
+        final Token operator;
+        final Expr left;
+        public Postfix(Token operator, Expr left) {
+            this.operator = operator;
+            this.left = left;
+        }
+
+        @Override
+        <T> T accept(Visitor<T> visitor) {
+            return visitor.visitPostfix(this);
         }
     }
 

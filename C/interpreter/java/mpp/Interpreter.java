@@ -17,6 +17,7 @@ import mpp.Expr.Lambda;
 import mpp.Expr.Literal;
 import mpp.Expr.Logical;
 import mpp.Expr.MList;
+import mpp.Expr.Postfix;
 import mpp.Expr.Set;
 import mpp.Expr.Super;
 import mpp.Expr.Ternary;
@@ -220,6 +221,53 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
                 return -(double) right;
             case BANG:
                 return !isTruthy(right);
+            case MINUS_MINUS:
+                checkNumberOperands(expr.operator, right);
+                if (expr.right instanceof Expr.Variable) {
+                    Token name = ((Expr.Variable) expr.right).name;
+
+                    Integer distance = locals.get(expr.right);
+                    if (distance != null) {
+                        environment.assignAt(distance, name, (double) right - 1);
+                    } else {
+                        globals.assign(name, (double) right - 1);
+                    }
+                } else if (expr.right instanceof Expr.Get) {
+                    Expr.Get instance = (Expr.Get) expr.right;
+                    Object object = evaluate(instance.object);
+
+                    if (!(object instanceof MinhppInstance)) {
+                        throw new RuntimeError(instance.name, "Only instances have property.");
+                    }
+
+                    ((MinhppInstance) object).set(instance.name, (double) right - 1);
+                }
+
+                return (double) right - 1;
+            case PLUS_PLUS:
+                checkNumberOperands(expr.operator, right);
+
+                if (expr.right instanceof Expr.Variable) {
+                    Token name = ((Expr.Variable) expr.right).name;
+
+                    Integer distance = locals.get(expr.right);
+                    if (distance != null) {
+                        environment.assignAt(distance, name, (double) right + 1);
+                    } else {
+                        globals.assign(name, (double) right + 1);
+                    }
+                } else if (expr.right instanceof Expr.Get) {
+                    Expr.Get instance = (Expr.Get) expr.right;
+                    Object object = evaluate(instance.object);
+
+                    if (!(object instanceof MinhppInstance)) {
+                        throw new RuntimeError(instance.name, "Only instances have property.");
+                    }
+
+                    ((MinhppInstance) object).set(instance.name, (double) right + 1);
+                }
+
+                return (double) right + 1;
             default:
                 break;
         }
@@ -552,12 +600,70 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
         return method.bind(currentInstance);
     }
 
-	@Override
-	public Object visitMList(MList expr) {
+    @Override
+    public Object visitMList(MList expr) {
         List<Object> items = new ArrayList<>();
         for (Expr init : expr.init) {
             items.add(evaluate(init));
         }
         return new MinhppList(items);
-	}
+    }
+
+    @Override
+    public Object visitPostfix(Postfix expr) {
+        Object left = evaluate(expr.left);
+        switch (expr.operator.type) {
+            case MINUS_MINUS:
+                checkNumberOperands(expr.operator, left);
+                if (expr.left instanceof Expr.Variable) {
+                    Token name = ((Expr.Variable) expr.left).name;
+
+                    Integer distance = locals.get(expr.left);
+                    if (distance != null) {
+                        environment.assignAt(distance, name, (double) left - 1);
+                    } else {
+                        globals.assign(name, (double) left - 1);
+                    }
+                } else if (expr.left instanceof Expr.Get) {
+                    Expr.Get instance = (Expr.Get) expr.left;
+                    Object object = evaluate(instance.object);
+
+                    if (!(object instanceof MinhppInstance)) {
+                        throw new RuntimeError(instance.name, "Only instances have property.");
+                    }
+
+                    ((MinhppInstance) object).set(instance.name, (double) left - 1);
+                }
+
+                return (double) left;
+            case PLUS_PLUS:
+                checkNumberOperands(expr.operator, left);
+
+                if (expr.left instanceof Expr.Variable) {
+                    Token name = ((Expr.Variable) expr.left).name;
+
+                    Integer distance = locals.get(expr.left);
+                    if (distance != null) {
+                        environment.assignAt(distance, name, (double) left + 1);
+                    } else {
+                        globals.assign(name, (double) left + 1);
+                    }
+                } else if (expr.left instanceof Expr.Get) {
+                    Expr.Get instance = (Expr.Get) expr.left;
+                    Object object = evaluate(instance.object);
+
+                    if (!(object instanceof MinhppInstance)) {
+                        throw new RuntimeError(instance.name, "Only instances have property.");
+                    }
+
+                    ((MinhppInstance) object).set(instance.name, (double) left + 1);
+                }
+
+                return left;
+            default:
+                break;
+        }
+
+        return null;
+    }
 }

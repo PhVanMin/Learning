@@ -360,7 +360,33 @@ public class Parser {
             return new Expr.Unary(operator, right);
         }
 
-        return call();
+        return prefix();
+    }
+
+    private Expr prefix() {
+        if (match(MINUS_MINUS) || match(PLUS_PLUS)) {
+            Token operator = peek(-1);
+            Expr right = call();
+            if (right instanceof Expr.Get || right instanceof Expr.Variable)
+                return new Expr.Unary(operator, right);
+
+            throw error(operator, "Expect a variable after '" + operator.lexeme +"'.");
+        }
+
+        return postfix();
+    }
+
+    private Expr postfix() {
+        Expr expr = call();
+
+        if (match(MINUS_MINUS) || match(PLUS_PLUS)) {
+            if (expr instanceof Expr.Get || expr instanceof Expr.Variable)
+                return new Expr.Postfix(peek(-1), expr);
+
+            throw error(peek(-1), "Expect a variable before '" + peek(-1).lexeme + "'.");
+        }
+
+        return expr;
     }
 
     private Expr call() {
@@ -429,15 +455,17 @@ public class Parser {
         if (match(NIL))
             return new Expr.Literal(null);
 
-        if (match(NUMBER, TokenType.STRING))
+        if (match(NUMBER, TokenType.STRING)) {
             return new Expr.Literal(peek(-1).literal);
+        }
 
         if (match(FUN)) {
             return new Expr.Lambda(function("lambda"));
         }
 
-        if (match(IDENTIFIER))
+        if (match(IDENTIFIER)) {
             return new Expr.Variable(peek(-1));
+        }
 
         if (match(LEFT_PAREN)) {
             Expr expr = expression();

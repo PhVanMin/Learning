@@ -16,6 +16,7 @@ import mpp.Expr.Lambda;
 import mpp.Expr.Literal;
 import mpp.Expr.Logical;
 import mpp.Expr.MList;
+import mpp.Expr.Postfix;
 import mpp.Expr.Set;
 import mpp.Expr.Super;
 import mpp.Expr.Ternary;
@@ -397,4 +398,10 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
 
         return null;
     }
+
+	@Override
+	public Void visitPostfix(Postfix expr) {
+        resolve(expr.left);
+        return null;
+	}
 }
